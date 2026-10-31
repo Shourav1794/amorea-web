@@ -444,7 +444,7 @@ export default function Home() {
               layout
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: '0.4' }}
+              transition={{ duration: 0.4 }}
               style={{ backgroundColor: 'rgba(23, 23, 23, 0.9)', border: '1px solid rgba(38, 38, 38, 0.8)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
             >
               <div style={{ position: 'relative', height: '320px', overflow: 'hidden', backgroundColor: '#000000' }}>
@@ -765,7 +765,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer id="contact" style={{ backgroundColor: '#000000', borderTop: '1px solid #171717', color: '#a3a3a3', padding: '48px 32px', fontSize: '14px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', mdDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: '24px', textAlign: 'center' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', gap: '24px', textAlign: 'center' }}>
           <a href="#" style={{ display: 'flex', alignItems: 'center', gap: '16px', textDecoration: 'none' }}>
             <img 
               src="/logo.JPG" 
