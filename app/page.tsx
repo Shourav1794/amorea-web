@@ -34,6 +34,8 @@ const translations = {
     decreaseQuantity: 'Decrease quantity',
     increaseQuantity: 'Increase quantity',
     sendMessage: 'Send message',
+    skipToContent: 'Skip to content',
+    mainNavigation: 'Main navigation',
     switchLanguage: 'Switch language to Bengali',
     home: 'Home',
     collections: 'Collections',
@@ -121,6 +123,8 @@ const translations = {
     decreaseQuantity: 'পরিমাণ কমান',
     increaseQuantity: 'পরিমাণ বাড়ান',
     sendMessage: 'বার্তা পাঠান',
+    skipToContent: 'মূল কনটেন্টে যান',
+    mainNavigation: 'প্রধান নেভিগেশন',
     switchLanguage: 'ইংরেজিতে পরিবর্তন করুন',
     home: 'হোম',
     collections: 'কালেকশন',
@@ -323,7 +327,7 @@ export default function Home() {
     t(productTranslationKeys[product.id][field]);
 
   useEffect(() => {
-    document.documentElement.lang = language;
+    document.documentElement.lang = language === 'bn' ? 'bn-BD' : 'en-BD';
   }, [language]);
 
   useEffect(() => {
@@ -527,8 +531,12 @@ export default function Home() {
         <div className="site-video-overlay" />
       </div>
 
+      <a className="skip-link" href="#main-content">
+        {t('skipToContent')}
+      </a>
+
       {/* Navigation Bar */}
-      <nav className="site-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', backgroundColor: 'rgba(0, 0, 0, 0.62)', borderBottom: '1px solid rgba(245, 158, 11, 0.2)', position: 'sticky', top: 0, zIndex: 50, backdropFilter: 'blur(10px)' }}>
+      <nav aria-label={t('mainNavigation')} className="site-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', backgroundColor: 'rgba(0, 0, 0, 0.62)', borderBottom: '1px solid rgba(245, 158, 11, 0.2)', position: 'sticky', top: 0, zIndex: 50, backdropFilter: 'blur(10px)' }}>
         <a href="#" className="site-nav-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '50%', overflow: 'hidden', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
             <Image src="/logo.JPG" alt="Amorea Main Logo" width={48} height={48} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -554,7 +562,7 @@ export default function Home() {
             <span className="language-flag" aria-hidden="true">{language === 'en' ? '🇧🇩' : '🇬🇧'}</span>
             <span className="language-name">{language === 'en' ? 'বাংলা' : 'English'}</span>
           </button>
-          <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>{t('home')}</a>
+          <a href="#main-content" style={{ color: 'inherit', textDecoration: 'none' }}>{t('home')}</a>
           <div ref={collectionsMenuRef} className="collections-menu-anchor" style={{ position: 'relative' }}>
             <button
               type="button"
@@ -783,8 +791,9 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+      <main id="main-content" tabIndex={-1}>
       {/* Hero Section */}
-      <section className="hero-section" style={{ minHeight: '85vh', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 16px' }}>
+      <section aria-labelledby="hero-heading" className="hero-section" style={{ minHeight: '85vh', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 16px' }}>
         <div className="hero-content" style={{ maxWidth: '900px', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '32px' }}>
           <motion.div
             key={currentSlide}
@@ -815,9 +824,9 @@ export default function Home() {
               </motion.div>
             </a>
 
-            <h2
+            <p
               className="coming-soon-animation"
-                aria-label={t('comingSoon')}
+              aria-label={t('comingSoon')}
               style={{ fontSize: 'clamp(30px, 5vw, 44px)', fontWeight: 500, fontFamily: 'var(--font-coming-soon), cursive', margin: 0 }}
             >
                 {t('comingSoon').split('').map((character, index) => (
@@ -830,15 +839,16 @@ export default function Home() {
                   {character === ' ' ? '\u00a0' : character}
                 </span>
               ))}
-            </h2>
+            </p>
           </motion.div>
 
-          <motion.h1 
+          <motion.h1
+            id="hero-heading"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
             className="hero-kicker"
-            style={{ color: 'rgba(253, 230, 138, 0.9)', fontWeight: 500, letterSpacing: '0.25em', fontSize: '13px', textTransform: 'uppercase', marginBottom: '12px' }}
+            style={{ color: 'rgba(253, 230, 138, 0.9)', fontWeight: 600, letterSpacing: 'clamp(0.02em, 0.4vw, 0.08em)', fontSize: 'clamp(20px, 3vw, 32px)', marginBottom: '16px' }}
           >
             {t('heroKicker')}
           </motion.h1>
@@ -924,7 +934,7 @@ export default function Home() {
       </section>
 
       {/* Product Section */}
-      <section id="shop" className="shop-section" style={{ padding: '80px 24px', maxWidth: '1200px', margin: '0 auto' }}>
+      <section id="shop" aria-labelledby="shop-heading" className="shop-section" style={{ padding: '80px 24px', maxWidth: '1200px', margin: '0 auto' }}>
         <motion.div
           className="shop-heading"
           initial={{ opacity: 0, y: 36 }}
@@ -934,9 +944,9 @@ export default function Home() {
           style={{ textAlign: 'center', marginBottom: '48px' }}
         >
           <span style={{ color: '#f59e0b', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.3em', fontWeight: 600, display: 'block', marginBottom: '12px' }}>{t('curatedPerfection')}</span>
-          <h3 style={{ fontSize: '36px', fontFamily: 'serif', fontWeight: 'bold', color: '#fef3c7', marginBottom: '16px' }}>
+          <h2 id="shop-heading" style={{ fontSize: '36px', fontFamily: 'serif', fontWeight: 'bold', color: '#fef3c7', marginBottom: '16px' }}>
             {t('featuredCollections')}
-          </h3>
+          </h2>
           <p style={{ color: '#a3a3a3', maxWidth: '500px', margin: '0 auto', fontSize: '14px' }}>
             {t('collectionsDescription')}
           </p>
@@ -946,6 +956,7 @@ export default function Home() {
               <button
                 key={tab.value}
                 className="collection-filter-button"
+                aria-pressed={activeCategory === tab.value}
                 onClick={() => setActiveCategory(tab.value)}
                 style={{
                   padding: '10px 24px',
@@ -975,15 +986,14 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0, scale: 1 }}
               viewport={{ once: true, amount: 0.15 }}
               transition={{ duration: 0.4 }}
-              style={{ backgroundColor: 'rgba(23, 23, 23, 0.68)', border: '1px solid rgba(245, 158, 11, 0.16)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)' }}
+              style={{ backgroundColor: 'rgba(23, 23, 23, 0.82)', border: '1px solid rgba(245, 158, 11, 0.16)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
             >
               <div className="product-image" style={{ position: 'relative', height: '320px', overflow: 'hidden', backgroundColor: '#000000' }}>
                 <Image
                   src={product.image}
                   alt={translatedProduct(product, 'name')}
                   fill
-                  unoptimized
-                  sizes="(max-width: 768px) 100vw, 33vw"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   style={{ objectFit: 'cover' }}
                 />
                 <span style={{ position: 'absolute', top: '16px', left: '16px', backgroundColor: '#f59e0b', color: '#000000', fontSize: '11px', fontWeight: 'bold', padding: '6px 14px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -999,9 +1009,9 @@ export default function Home() {
                   </div>
                   <span style={{ fontSize: '11px', color: '#737373', letterSpacing: '0.2em', fontFamily: 'serif' }}>AMOREA</span>
                 </div>
-                <h4 className="product-title" style={{ fontSize: '18px', fontWeight: 600, color: '#ffffff', marginBottom: '16px' }}>
+                <h3 className="product-title" style={{ fontSize: '18px', fontWeight: 600, color: '#ffffff', marginBottom: '16px' }}>
                   {translatedProduct(product, 'name')}
-                </h4>
+                </h3>
                 <div className="product-purchase-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #262626', paddingTop: '16px' }}>
                   <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#f59e0b' }}>৳ {formatPrice(product.price)}</span>
                   <button 
@@ -1019,7 +1029,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="contact" className="contact-section">
+      <section id="contact" aria-labelledby="contact-heading" className="contact-section">
         <div className="contact-heading">
           <div className="contact-brand-logo-frame">
             <Image
@@ -1031,7 +1041,7 @@ export default function Home() {
             />
           </div>
           <span>{t('contactEyebrow')}</span>
-          <h2>{t('contactHeading')}</h2>
+          <h2 id="contact-heading">{t('contactHeading')}</h2>
           <p>{t('contactDescription')}</p>
         </div>
         <div className="contact-links">
@@ -1043,7 +1053,7 @@ export default function Home() {
             <span>{t('contactPhone')}</span>
             <strong>+880 1779 747967</strong>
           </a>
-          <a className="contact-link contact-link-messenger" href="https://m.me/amorea.com.bd" target="_blank" rel="noreferrer">
+          <a className="contact-link contact-link-messenger" href="https://m.me/amorea.com.bd" target="_blank" rel="noopener noreferrer">
             <span className="contact-link-top">
               <span className="contact-link-icon">
                 <svg className="brand-logo brand-logo-messenger" viewBox="0 0 24 24" aria-hidden="true">
@@ -1062,7 +1072,7 @@ export default function Home() {
             <span>{t('contactMessenger')}</span>
             <strong>Amorea</strong>
           </a>
-          <a className="contact-link contact-link-instagram" href="https://www.instagram.com/amorea.com.bd/" target="_blank" rel="noreferrer">
+          <a className="contact-link contact-link-instagram" href="https://www.instagram.com/amorea.com.bd/" target="_blank" rel="noopener noreferrer">
             <span className="contact-link-top">
               <span className="contact-link-icon">
                 <svg className="brand-logo brand-logo-instagram" viewBox="0 0 24 24" aria-hidden="true">
@@ -1085,7 +1095,7 @@ export default function Home() {
             <span>{t('contactInstagram')}</span>
             <strong>@amorea.com.bd</strong>
           </a>
-          <a className="contact-link contact-link-whatsapp" href="https://wa.me/8801779747967" target="_blank" rel="noreferrer">
+          <a className="contact-link contact-link-whatsapp" href="https://wa.me/8801779747967" target="_blank" rel="noopener noreferrer">
             <span className="contact-link-top">
               <span className="contact-link-icon">
                 <svg className="brand-logo brand-logo-whatsapp" viewBox="0 0 24 24" aria-hidden="true">
@@ -1100,6 +1110,7 @@ export default function Home() {
           </a>
         </div>
       </section>
+      </main>
 
       {/* Cart Drawer */}
       <AnimatePresence>
@@ -1139,7 +1150,7 @@ export default function Home() {
                   cart.map((item) => (
                     <div key={item.id} style={{ display: 'flex', gap: '16px', backgroundColor: '#0a0a0a', padding: '16px', borderRadius: '12px', border: '1px solid #262626', alignItems: 'center' }}>
                       <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0 }}>
-                        <Image src={item.image} alt={translatedProduct(item, 'name')} fill unoptimized sizes="64px" style={{ objectFit: 'cover' }} />
+                        <Image src={item.image} alt={translatedProduct(item, 'name')} fill sizes="64px" style={{ objectFit: 'cover' }} />
                       </div>
                       <div style={{ flex: 1 }}>
                         <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', marginBottom: '4px' }}>{translatedProduct(item, 'name')}</h4>
