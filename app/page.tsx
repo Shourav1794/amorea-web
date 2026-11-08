@@ -51,6 +51,8 @@ const translations = {
     login: 'Login',
     signUpTitle: 'Create your account',
     signUpDescription: 'Choose a sign-up method. These options will be configured later.',
+    loginTitle: 'Welcome back',
+    loginDescription: 'Choose a login method. These options will be configured later.',
     setupLater: 'Coming soon',
     allItems: 'All Items',
     pakistaniWear: 'Pakistani Wear',
@@ -132,6 +134,8 @@ const translations = {
     login: 'লগ ইন',
     signUpTitle: 'আপনার অ্যাকাউন্ট তৈরি করুন',
     signUpDescription: 'নিবন্ধনের মাধ্যম বেছে নিন। অপশনগুলো পরে কনফিগার করা হবে।',
+    loginTitle: 'আবারও স্বাগতম',
+    loginDescription: 'লগ ইন করার মাধ্যম বেছে নিন। অপশনগুলো পরে কনফিগার করা হবে।',
     setupLater: 'শীঘ্রই আসছে',
     allItems: 'সব পণ্য',
     pakistaniWear: 'পাকিস্তানি পোশাক',
@@ -279,7 +283,7 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
-  const [isSignUpOpen, setIsSignUpOpen] = useState(false);
+  const [authDialogMode, setAuthDialogMode] = useState<'signUp' | 'login' | null>(null);
   const collectionsMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const backgroundVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -313,7 +317,7 @@ export default function Home() {
   }, [language]);
 
   useEffect(() => {
-    if (!isAccountOpen && !isCollectionsOpen && !isSignUpOpen) return;
+    if (!isAccountOpen && !isCollectionsOpen && !authDialogMode) return;
 
     const handlePointerDown = (event: PointerEvent) => {
       if (event.target instanceof Node) {
@@ -325,7 +329,7 @@ export default function Home() {
       if (event.key === 'Escape') {
         setIsAccountOpen(false);
         setIsCollectionsOpen(false);
-        setIsSignUpOpen(false);
+        setAuthDialogMode(null);
       }
     };
 
@@ -335,7 +339,7 @@ export default function Home() {
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isAccountOpen, isCollectionsOpen, isSignUpOpen]);
+  }, [isAccountOpen, isCollectionsOpen, authDialogMode]);
 
   useEffect(() => {
     const activeVideo = backgroundVideoRefs.current[currentSlide];
@@ -601,10 +605,10 @@ export default function Home() {
                   className="account-menu"
                   style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: '180px', padding: '8px', borderRadius: '14px', border: '1px solid rgba(245, 158, 11, 0.3)', backgroundColor: '#171717', boxShadow: '0 12px 35px rgba(0,0,0,0.55)', zIndex: 60 }}
                 >
-                  <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setIsSignUpOpen(true); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
+                  <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setAuthDialogMode('signUp'); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
                     {t('signUp')}
                   </button>
-                  <button type="button" role="menuitem" onClick={() => setIsAccountOpen(false)} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
+                  <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setAuthDialogMode('login'); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
                     {t('login')}
                   </button>
                 </motion.div>
@@ -615,7 +619,7 @@ export default function Home() {
       </nav>
 
       <AnimatePresence>
-        {isSignUpOpen && (
+        {authDialogMode && (
           <motion.div
             className="signup-overlay"
             role="presentation"
@@ -623,15 +627,15 @@ export default function Home() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setIsSignUpOpen(false);
+              if (event.target === event.currentTarget) setAuthDialogMode(null);
             }}
           >
             <motion.section
               className="signup-dialog"
               role="dialog"
               aria-modal="true"
-              aria-labelledby="signup-title"
-              aria-describedby="signup-description"
+              aria-labelledby="auth-dialog-title"
+              aria-describedby="auth-dialog-description"
               initial={{ opacity: 0, y: 18, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -641,7 +645,7 @@ export default function Home() {
                 type="button"
                 className="signup-close"
                 aria-label={t('close')}
-                onClick={() => setIsSignUpOpen(false)}
+                onClick={() => setAuthDialogMode(null)}
               >
                 <X size={19} />
               </button>
@@ -653,8 +657,8 @@ export default function Home() {
                 height={64}
               />
               <span className="signup-eyebrow">AMOREA</span>
-              <h2 id="signup-title">{t('signUpTitle')}</h2>
-              <p id="signup-description">{t('signUpDescription')}</p>
+              <h2 id="auth-dialog-title">{t(authDialogMode === 'signUp' ? 'signUpTitle' : 'loginTitle')}</h2>
+              <p id="auth-dialog-description">{t(authDialogMode === 'signUp' ? 'signUpDescription' : 'loginDescription')}</p>
               <div className="signup-providers">
                 <button type="button" className="signup-provider signup-provider-google" disabled>
                   <svg viewBox="0 0 24 24" aria-hidden="true">
