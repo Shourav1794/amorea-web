@@ -842,26 +842,24 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <motion.h1
-            id="hero-heading"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="hero-kicker"
-            style={{ color: 'rgba(253, 230, 138, 0.9)', fontWeight: 600, letterSpacing: 'clamp(0.02em, 0.4vw, 0.08em)', fontSize: 'clamp(20px, 3vw, 32px)', marginBottom: '16px' }}
-          >
-            {t('heroKicker')}
-          </motion.h1>
-
-          <div className="hero-brand-line" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-            <span style={{ fontSize: '24px', fontWeight: 'normal', fontFamily: 'serif', color: '#e5e5e5' }}>
-              {t('eleganceDefined')}
-            </span>
-
-            <motion.div
-              key={currentSlide}
-              style={{ display: 'inline-flex', alignItems: 'center', fontSize: '24px', fontFamily: 'serif', fontWeight: 'bold', letterSpacing: '0.15em', overflow: 'hidden', padding: '4px 8px' }}
+          <div className="hero-copy">
+            <motion.h1
+              id="hero-heading"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="hero-kicker"
             >
+              {t('heroKicker')}
+            </motion.h1>
+
+            <div className="hero-brand-line">
+              <span>{t('eleganceDefined')}</span>
+
+              <motion.div
+                key={currentSlide}
+                className="hero-wordmark"
+              >
               <motion.span
                 initial={{ x: '-60vw', opacity: 0, scale: 0.5 }}
                 animate={{ x: 0, opacity: 1, scale: 1 }}
@@ -907,12 +905,13 @@ export default function Home() {
                   A
                 </motion.span>
               </motion.span>
-            </motion.div>
-          </div>
+              </motion.div>
+            </div>
 
-          <p className="hero-description" style={{ maxWidth: '600px', margin: '0 auto 28px auto', color: '#d4d4d4', fontSize: '15px', lineHeight: '1.6', fontWeight: 300 }}>
-            {t('heroDescription')}
-          </p>
+            <p className="hero-description">
+              {t('heroDescription')}
+            </p>
+          </div>
 
           <div className="hero-actions" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '16px' }}>
             <a 

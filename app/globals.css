@@ -390,28 +390,63 @@ html[lang="bn"] .site-shell p {
 }
 
 .hero-content {
-  width: min(100%, 900px);
+  width: min(100%, 820px);
   padding-top: 0 !important;
   animation: gentleFloat 8s ease-in-out infinite;
 }
 
+.hero-copy {
+  width: min(100%, 700px);
+  margin-bottom: 24px;
+}
+
 .hero-kicker {
-  max-width: 46rem;
-  font-size: clamp(20px, 3vw, 32px) !important;
-  letter-spacing: clamp(0.02em, 0.4vw, 0.08em) !important;
-  line-height: 1.7;
-  text-wrap: balance;
+  width: 100%;
+  margin: 0 auto 10px;
+  color: rgba(253, 230, 138, 0.92);
+  font-size: clamp(8px, 2.8vw, 14px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .hero-brand-line {
+  display: flex;
   max-width: 100%;
-  row-gap: 8px !important;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  column-gap: clamp(10px, 2vw, 18px);
+  row-gap: 4px;
+  margin-bottom: 12px;
+  color: #f5f0e5;
+  font-family: serif;
+  font-size: clamp(21px, 2.4vw, 30px);
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.hero-wordmark {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  padding: 4px 8px;
+  font-family: serif;
+  font-size: inherit;
+  font-weight: 700;
+  letter-spacing: 0.15em;
 }
 
 .hero-description {
-  max-width: 600px;
-  margin-inline: auto !important;
-  line-height: 1.8 !important;
+  max-width: 570px;
+  margin: 0 auto !important;
+  color: #e5e5e5;
+  font-size: clamp(14px, 1.3vw, 16px);
+  font-weight: 400;
+  line-height: 1.75 !important;
+  text-wrap: balance;
 }
 
 .hero-actions {
@@ -912,23 +947,28 @@ html[lang="bn"] .site-shell p {
     font-size: clamp(23px, 6.4vw, 34px) !important;
   }
 
+  .hero-copy {
+    margin-bottom: 20px;
+  }
+
   .hero-kicker {
-    margin-bottom: 10px !important;
+    margin-bottom: 8px;
   }
 
   .hero-brand-line {
-    gap: 6px 10px !important;
-    margin-bottom: 14px !important;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 10px;
   }
 
   .hero-brand-line > span,
-  .hero-brand-line > div {
-    font-size: clamp(19px, 5.3vw, 24px) !important;
+  .hero-brand-line > .hero-wordmark {
+    font-size: clamp(20px, 5.3vw, 24px);
   }
 
   .hero-description {
-    margin-bottom: 22px !important;
-    font-size: 14px !important;
+    max-width: 34rem;
+    font-size: 14px;
     line-height: 1.8 !important;
   }
 
