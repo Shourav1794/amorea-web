@@ -298,6 +298,7 @@ export default function Home() {
   const backgroundVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const isVideoTransitioning = useRef(false);
   const videoTransitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showVideoPoster, setShowVideoPoster] = useState(true);
   
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -367,6 +368,7 @@ export default function Home() {
 
     activeVideo.currentTime = 0;
     void activeVideo.play().catch((error: unknown) => {
+      setShowVideoPoster(true);
       console.error(`Unable to play background video ${sliderVideos[currentSlide]}`, error);
     });
   }, [currentSlide]);
@@ -486,9 +488,19 @@ export default function Home() {
           >
             <video
               ref={(video) => { backgroundVideoRefs.current[index] = video; }}
+              autoPlay={index === currentSlide}
               muted
               playsInline
-              preload="auto"
+              poster="/video-poster.jpg"
+              preload={index === currentSlide ? 'auto' : 'none'}
+              onPlaying={() => {
+                if (index === currentSlide) setShowVideoPoster(false);
+              }}
+              onError={() => {
+                if (index !== currentSlide) return;
+                setShowVideoPoster(true);
+                console.error(`Unable to load background video ${videoSrc}`);
+              }}
               onTimeUpdate={(event) => {
                 if (index !== currentSlide) return;
                 const { currentTime, duration } = event.currentTarget;
@@ -508,6 +520,10 @@ export default function Home() {
             </video>
           </motion.div>
         ))}
+        <div
+          className="site-video-poster"
+          style={{ opacity: showVideoPoster ? 1 : 0 }}
+        />
         <div className="site-video-overlay" />
       </div>
 
