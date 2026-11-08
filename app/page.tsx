@@ -285,7 +285,7 @@ export default function Home() {
         </button>
 
         <div style={{ maxWidth: '900px', zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '32px' }}>
-          <a href="#" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px', textDecoration: 'none' }}>
+          <a href="#" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '8px', textDecoration: 'none' }}>
             <motion.div
               key={currentSlide}
               initial={{ rotateY: 720, rotateZ: 360, scale: 0.2, opacity: 0 }}
@@ -307,6 +307,18 @@ export default function Home() {
               />
             </motion.div>
           </a>
+
+          {/* লোগোর নিচে শাইনি গোল্ডেন হ্যালো অ্যানিমেশনযুক্ত Coming Soon... টেক্সট */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.3 }}
+            style={{ marginBottom: '16px' }}
+          >
+            <h2 className="coming-soon-animation" style={{ fontSize: '24px', fontWeight: 300, fontFamily: 'serif', margin: 0 }}>
+              Coming Soon...
+            </h2>
+          </motion.div>
 
           <motion.h1 
             initial={{ opacity: 0, y: 10 }}
@@ -644,12 +656,13 @@ export default function Home() {
                           borderRadius: '12px',
                           border: deliveryZone === 'inside' ? '1px solid #f59e0b' : '1px solid #262626',
                           backgroundColor: deliveryZone === 'inside' ? 'rgba(245,158,11,0.1)' : '#0a0a0a',
-                          color: deliveryZone === 'inside' ? '#f59e0b' : '#a3a3a3',
-                          fontWeight: deliveryZone === 'inside' ? 'bold' : 'normal',
-                          cursor: 'pointer'
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          textAlign: 'left'
                         }}
                       >
-                        Dhakar Bhitore (৳80)
+                        <div style={{ fontWeight: 'bold' }}>Dhaka City</div>
+                        <div style={{ fontSize: '12px', color: '#f59e0b' }}>৳ 80</div>
                       </button>
                       <button
                         type="button"
@@ -659,34 +672,35 @@ export default function Home() {
                           borderRadius: '12px',
                           border: deliveryZone === 'outside' ? '1px solid #f59e0b' : '1px solid #262626',
                           backgroundColor: deliveryZone === 'outside' ? 'rgba(245,158,11,0.1)' : '#0a0a0a',
-                          color: deliveryZone === 'outside' ? '#f59e0b' : '#a3a3a3',
-                          fontWeight: deliveryZone === 'outside' ? 'bold' : 'normal',
-                          cursor: 'pointer'
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          textAlign: 'left'
                         }}
                       >
-                        Dhakar Baire (৳150)
+                        <div style={{ fontWeight: 'bold' }}>Outside Dhaka</div>
+                        <div style={{ fontSize: '12px', color: '#f59e0b' }}>৳ 150</div>
                       </button>
                     </div>
                   </div>
 
-                  <div style={{ backgroundColor: '#0a0a0a', padding: '16px', borderRadius: '12px', border: '1px solid #262626', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#a3a3a3' }}>
+                  <div style={{ backgroundColor: '#0a0a0a', padding: '16px', borderRadius: '12px', border: '1px solid #262626', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#a3a3a3', fontSize: '13px' }}>
                       <span>Subtotal:</span>
                       <span>৳ {subtotal.toLocaleString('bn-BD')}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#a3a3a3' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#a3a3a3', fontSize: '13px' }}>
                       <span>Delivery Charge:</span>
-                      <span>৳ {deliveryCharge.toLocaleString('bn-BD')}</span>
+                      <span>৳ {deliveryCharge}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f59e0b', fontWeight: 'bold', fontSize: '16px', borderTop: '1px solid #262626', paddingTop: '8px' }}>
-                      <span>Grand Total:</span>
-                      <span>৳ {grandTotal.toLocaleString('bn-BD')}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ffffff', fontWeight: 'bold', fontSize: '16px', borderTop: '1px solid #262626', paddingTop: '8px', marginTop: '4px' }}>
+                      <span>Total Payable:</span>
+                      <span style={{ color: '#f59e0b' }}>৳ {grandTotal.toLocaleString('bn-BD')}</span>
                     </div>
                   </div>
 
                   <button
                     type="submit"
-                    style={{ width: '100%', background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', fontWeight: 'bold', padding: '16px', borderRadius: '12px', border: 'none', cursor: 'pointer', marginTop: '8px', fontSize: '15px' }}
+                    style={{ width: '100%', background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', fontWeight: 'bold', padding: '14px', borderRadius: '12px', border: 'none', cursor: 'pointer', marginTop: '12px', boxShadow: '0 0 20px rgba(245,158,11,0.3)' }}
                   >
                     Confirm Order (Cash on Delivery)
                   </button>
@@ -697,18 +711,15 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* AI Chatbot Widget */}
-      <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 40 }}>
+      {/* AI Chat Drawer */}
+      <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 50 }}>
         {!isChatOpen && (
-          <motion.button
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            whileHover={{ scale: 1.1 }}
+          <button
             onClick={() => setIsChatOpen(true)}
-            style={{ background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', padding: '16px', borderRadius: '50%', border: 'none', cursor: 'pointer', boxShadow: '0 0 25px rgba(245,158,11,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 25px rgba(245,158,11,0.5)', position: 'relative' }}
           >
-            <Sparkles size={24} />
-          </motion.button>
+            <Sparkles size={26} />
+          </button>
         )}
 
         <AnimatePresence>
@@ -717,74 +728,70 @@ export default function Home() {
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              style={{ backgroundColor: '#171717', border: '1px solid rgba(245,158,11,0.3)', width: '360px', height: '500px', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+              style={{ width: '360px', height: '500px', backgroundColor: '#171717', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '20px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.9)' }}
             >
-              <div style={{ backgroundColor: 'rgba(0,0,0,0.9)', padding: '16px 20px', borderBottom: '1px solid #262626', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ backgroundColor: 'rgba(245,158,11,0.1)', padding: '8px', borderRadius: '50%', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', display: 'flex' }}>
-                    <Bot size={20} />
+              <div style={{ padding: '16px 20px', backgroundColor: 'rgba(0,0,0,0.9)', borderBottom: '1px solid #262626', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(245,158,11,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b' }}>
+                    <Bot size={18} />
                   </div>
                   <div>
-                    <h4 style={{ fontWeight: 'bold', color: '#ffffff', fontSize: '14px', margin: 0 }}>Amorea AI Stylist</h4>
-                    <p style={{ fontSize: '11px', color: '#34d399', margin: '2px 0 0 0', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#34d399', display: 'inline-block' }}></span> Online
-                    </p>
+                    <h4 style={{ fontSize: '14px', fontWeight: 'bold', color: '#ffffff', margin: 0 }}>Amorea AI Stylist</h4>
+                    <span style={{ fontSize: '10px', color: '#34d399' }}>● Online</span>
                   </div>
                 </div>
                 <button onClick={() => setIsChatOpen(false)} style={{ background: 'transparent', border: 'none', color: '#a3a3a3', cursor: 'pointer' }}>
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
 
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '14px', backgroundColor: 'rgba(10,10,10,0.5)' }}>
-                {messages.map((msg, index) => (
-                  <div key={index} style={{ display: 'flex', justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
-                    <div style={{ maxWidth: '80%', padding: '12px 16px', borderRadius: '16px', lineHeight: '1.5', backgroundColor: msg.sender === 'user' ? '#f59e0b' : '#171717', color: msg.sender === 'user' ? '#000000' : '#e5e5e5', border: msg.sender === 'user' ? 'none' : '1px solid #262626', fontWeight: msg.sender === 'user' ? 500 : 'normal' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {messages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                    }}
+                  >
+                    <div
+                      style={{
+                        maxWidth: '80%',
+                        padding: '10px 14px',
+                        borderRadius: '12px',
+                        fontSize: '13px',
+                        lineHeight: '1.4',
+                        backgroundColor: msg.sender === 'user' ? '#f59e0b' : '#262626',
+                        color: msg.sender === 'user' ? '#000000' : '#ffffff',
+                        borderBottomRightRadius: msg.sender === 'user' ? '2px' : '12px',
+                        borderBottomLeftRadius: msg.sender === 'ai' ? '2px' : '12px',
+                      }}
+                    >
                       {msg.text}
                     </div>
                   </div>
                 ))}
               </div>
 
-              <form onSubmit={handleSendMessage} style={{ padding: '12px', backgroundColor: 'rgba(0,0,0,0.9)', borderTop: '1px solid #262626', display: 'flex', gap: '8px' }}>
-                <input 
+              <form onSubmit={handleSendMessage} style={{ padding: '12px', borderTop: '1px solid #262626', backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', gap: '8px' }}>
+                <input
                   type="text"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder="Apnar pochondo ba proshno likhun..."
-                  style={{ flex: 1, backgroundColor: '#171717', border: '1px solid #262626', color: '#ffffff', padding: '10px 16px', borderRadius: '9999px', fontSize: '14px', outline: 'none' }}
+                  placeholder="Kichu jiggesh korun..."
+                  style={{ flex: 1, backgroundColor: '#0a0a0a', border: '1px solid #262626', borderRadius: '10px', padding: '10px 14px', color: '#ffffff', fontSize: '13px', outline: 'none' }}
                 />
-                <button type="submit" style={{ backgroundColor: '#f59e0b', color: '#000000', border: 'none', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                  <Send size={18} />
+                <button
+                  type="submit"
+                  style={{ backgroundColor: '#f59e0b', color: '#000000', border: 'none', borderRadius: '10px', width: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                >
+                  <Send size={16} />
                 </button>
               </form>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-
-      {/* Footer */}
-      <footer id="contact" style={{ backgroundColor: '#000000', borderTop: '1px solid #171717', color: '#a3a3a3', padding: '48px 32px', fontSize: '14px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', gap: '24px', textAlign: 'center' }}>
-          <a href="#" style={{ display: 'flex', alignItems: 'center', gap: '16px', textDecoration: 'none' }}>
-            <img 
-              src="/logo.JPG" 
-              alt="Amorea Footer Logo" 
-              style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '50%', border: '1px solid rgba(245,158,11,0.3)' }}
-            />
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '18px', margin: '0 0 4px 0', letterSpacing: '0.15em', fontFamily: 'serif' }}>AMOREA</p>
-              <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d4d4d4', margin: '0 0 4px 0', fontSize: '13px' }}>
-                <MapPin size={14} style={{ color: '#f59e0b', flexShrink: 0 }} /> Valencia Building, SA Khalek City, Gabtoli, Dhaka
-              </p>
-              <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d4d4d4', margin: 0, fontSize: '13px' }}>
-                <Phone size={14} style={{ color: '#f59e0b', flexShrink: 0 }} /> +880 1779-747967
-              </p>
-            </div>
-          </a>
-          <p style={{ color: '#737373', fontSize: '13px', margin: 0 }}>© 2026 amorea.com.bd. All rights reserved.</p>
-        </div>
-      </footer>
     </div>
   );
 }

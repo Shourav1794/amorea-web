@@ -1,1 +1,22 @@
 @import "tailwindcss";
+@keyframes helloWrite {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.coming-soon-animation {
+  background: linear-gradient(135deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: helloWrite 2.5s ease-in-out infinite alternate;
+  letter-spacing: 3px;
+}
