@@ -49,6 +49,9 @@ const translations = {
     account: 'Account',
     signUp: 'Sign-Up',
     login: 'Login',
+    signUpTitle: 'Create your account',
+    signUpDescription: 'Choose a sign-up method. These options will be configured later.',
+    setupLater: 'Coming soon',
     allItems: 'All Items',
     pakistaniWear: 'Pakistani Wear',
     skincareBeauty: 'Skincare & Beauty',
@@ -127,6 +130,9 @@ const translations = {
     account: 'অ্যাকাউন্ট',
     signUp: 'নিবন্ধন',
     login: 'লগ ইন',
+    signUpTitle: 'আপনার অ্যাকাউন্ট তৈরি করুন',
+    signUpDescription: 'নিবন্ধনের মাধ্যম বেছে নিন। অপশনগুলো পরে কনফিগার করা হবে।',
+    setupLater: 'শীঘ্রই আসছে',
     allItems: 'সব পণ্য',
     pakistaniWear: 'পাকিস্তানি পোশাক',
     skincareBeauty: 'ত্বক ও সৌন্দর্যচর্চা',
@@ -273,6 +279,7 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isSignUpOpen, setIsSignUpOpen] = useState(false);
   const collectionsMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const backgroundVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -306,7 +313,7 @@ export default function Home() {
   }, [language]);
 
   useEffect(() => {
-    if (!isAccountOpen && !isCollectionsOpen) return;
+    if (!isAccountOpen && !isCollectionsOpen && !isSignUpOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
       if (event.target instanceof Node) {
@@ -318,6 +325,7 @@ export default function Home() {
       if (event.key === 'Escape') {
         setIsAccountOpen(false);
         setIsCollectionsOpen(false);
+        setIsSignUpOpen(false);
       }
     };
 
@@ -327,7 +335,7 @@ export default function Home() {
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isAccountOpen, isCollectionsOpen]);
+  }, [isAccountOpen, isCollectionsOpen, isSignUpOpen]);
 
   useEffect(() => {
     const activeVideo = backgroundVideoRefs.current[currentSlide];
@@ -593,7 +601,7 @@ export default function Home() {
                   className="account-menu"
                   style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: '180px', padding: '8px', borderRadius: '14px', border: '1px solid rgba(245, 158, 11, 0.3)', backgroundColor: '#171717', boxShadow: '0 12px 35px rgba(0,0,0,0.55)', zIndex: 60 }}
                 >
-                  <button type="button" role="menuitem" onClick={() => setIsAccountOpen(false)} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
+                  <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setIsSignUpOpen(true); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
                     {t('signUp')}
                   </button>
                   <button type="button" role="menuitem" onClick={() => setIsAccountOpen(false)} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
@@ -605,6 +613,97 @@ export default function Home() {
           </div>
         </div>
       </nav>
+
+      <AnimatePresence>
+        {isSignUpOpen && (
+          <motion.div
+            className="signup-overlay"
+            role="presentation"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setIsSignUpOpen(false);
+            }}
+          >
+            <motion.section
+              className="signup-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="signup-title"
+              aria-describedby="signup-description"
+              initial={{ opacity: 0, y: 18, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              <button
+                type="button"
+                className="signup-close"
+                aria-label={t('close')}
+                onClick={() => setIsSignUpOpen(false)}
+              >
+                <X size={19} />
+              </button>
+              <Image
+                className="signup-logo"
+                src="/logo.JPG"
+                alt="Amorea"
+                width={64}
+                height={64}
+              />
+              <span className="signup-eyebrow">AMOREA</span>
+              <h2 id="signup-title">{t('signUpTitle')}</h2>
+              <p id="signup-description">{t('signUpDescription')}</p>
+              <div className="signup-providers">
+                <button type="button" className="signup-provider signup-provider-google" disabled>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#4285F4" d="M21.35 12.23c0-.71-.06-1.4-.18-2.06H12v3.9h5.24a4.48 4.48 0 0 1-1.95 2.94v2.4h3.16c1.85-1.7 2.9-4.2 2.9-7.18Z" />
+                    <path fill="#34A853" d="M12 21.75c2.64 0 4.86-.88 6.48-2.38l-3.16-2.4c-.88.59-2 .94-3.32.94-2.55 0-4.72-1.72-5.5-4.04H3.23v2.47A9.78 9.78 0 0 0 12 21.75Z" />
+                    <path fill="#FBBC05" d="M6.5 13.87a5.88 5.88 0 0 1 0-3.74V7.66H3.23a9.75 9.75 0 0 0 0 8.68l3.27-2.47Z" />
+                    <path fill="#EA4335" d="M12 6.1c1.44 0 2.73.5 3.75 1.5l2.81-2.81A9.4 9.4 0 0 0 12 2.25a9.78 9.78 0 0 0-8.77 5.4L6.5 10.1c.78-2.32 2.95-4 5.5-4Z" />
+                  </svg>
+                  <span>Google</span>
+                  <small>{t('setupLater')}</small>
+                </button>
+                <button type="button" className="signup-provider signup-provider-facebook" disabled>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#1877F2" d="M24 12a12 12 0 1 0-13.88 11.86v-8.4H7.08V12h3.04V9.36c0-3 1.79-4.66 4.52-4.66 1.31 0 2.68.23 2.68.23v2.95h-1.51c-1.49 0-1.95.92-1.95 1.87V12h3.32l-.53 3.46h-2.79v8.4A12 12 0 0 0 24 12Z" />
+                  </svg>
+                  <span>Facebook</span>
+                  <small>{t('setupLater')}</small>
+                </button>
+                <button type="button" className="signup-provider signup-provider-whatsapp" disabled>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#25D366" d="M12 1.5A10.4 10.4 0 0 0 3.1 17.3L1.7 22.5l5.3-1.4A10.5 10.5 0 1 0 12 1.5Z" />
+                    <path fill="#fff" d="M17.9 14.9c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.6-1.8-1.8-2.1-.2-.3 0-.5.1-.6l.5-.6c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6-.1-.2-.7-1.7-.9-2.3-.2-.6-.5-.5-.7-.5H7.8c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.6s1.1 3 1.2 3.2c.2.2 2.2 3.4 5.4 4.7.8.3 1.4.5 1.8.6.8.2 1.5.2 2 .1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.3-.3-.6-.5Z" />
+                  </svg>
+                  <span>WhatsApp</span>
+                  <small>{t('setupLater')}</small>
+                </button>
+                <button type="button" className="signup-provider signup-provider-instagram" disabled>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="signup-instagram-gradient" x1="0" y1="1" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#FFDC80" />
+                        <stop offset="35%" stopColor="#F77737" />
+                        <stop offset="68%" stopColor="#E1306C" />
+                        <stop offset="100%" stopColor="#833AB4" />
+                      </linearGradient>
+                    </defs>
+                    <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#signup-instagram-gradient)" />
+                    <rect x="6" y="6" width="12" height="12" rx="3.5" fill="none" stroke="#fff" strokeWidth="1.8" />
+                    <circle cx="12" cy="12" r="3" fill="none" stroke="#fff" strokeWidth="1.8" />
+                    <circle cx="17.2" cy="6.9" r="1.1" fill="#fff" />
+                  </svg>
+                  <span>Instagram</span>
+                  <small>{t('setupLater')}</small>
+                </button>
+              </div>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hero Section */}
       <section className="hero-section" style={{ minHeight: '85vh', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 16px' }}>
