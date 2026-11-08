@@ -54,6 +54,10 @@ const translations = {
     loginTitle: 'Welcome back',
     loginDescription: 'Choose a login method. These options will be configured later.',
     setupLater: 'Coming soon',
+    securityCheckTitle: 'DATA security check',
+    securityCheckRunning: 'Running a brief security check...',
+    securityCheckComplete: 'Security Checking Completed...',
+    securityCheckNotice: 'This demo does not verify overall website security. It cannot access or save your media.',
     allItems: 'All Items',
     pakistaniWear: 'Pakistani Wear',
     skincareBeauty: 'Skincare & Beauty',
@@ -137,6 +141,10 @@ const translations = {
     loginTitle: 'আবারও স্বাগতম',
     loginDescription: 'লগ ইন করার মাধ্যম বেছে নিন। অপশনগুলো পরে কনফিগার করা হবে।',
     setupLater: 'শীঘ্রই আসছে',
+    securityCheckTitle: 'DATA নিরাপত্তা যাচাই',
+    securityCheckRunning: 'একটি সংক্ষিপ্ত নিরাপত্তা যাচাই চলছে...',
+    securityCheckComplete: 'নিরাপত্তা যাচাই সম্পন্ন হয়েছে...',
+    securityCheckNotice: 'এই ডেমো পুরো ওয়েবসাইটের নিরাপত্তা যাচাই করে না। এটি আপনার মিডিয়া দেখতে বা সংরক্ষণ করতে পারে না।',
     allItems: 'সব পণ্য',
     pakistaniWear: 'পাকিস্তানি পোশাক',
     skincareBeauty: 'ত্বক ও সৌন্দর্যচর্চা',
@@ -284,6 +292,7 @@ export default function Home() {
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [authDialogMode, setAuthDialogMode] = useState<'signUp' | 'login' | null>(null);
+  const [authFlowStage, setAuthFlowStage] = useState<'checking' | 'complete' | 'form'>('checking');
   const collectionsMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const backgroundVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -340,6 +349,17 @@ export default function Home() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isAccountOpen, isCollectionsOpen, authDialogMode]);
+
+  useEffect(() => {
+    if (!authDialogMode) return;
+
+    const completeTimer = setTimeout(() => setAuthFlowStage('complete'), 2500);
+    const formTimer = setTimeout(() => setAuthFlowStage('form'), 4500);
+    return () => {
+      clearTimeout(completeTimer);
+      clearTimeout(formTimer);
+    };
+  }, [authDialogMode]);
 
   useEffect(() => {
     const activeVideo = backgroundVideoRefs.current[currentSlide];
@@ -605,10 +625,10 @@ export default function Home() {
                   className="account-menu"
                   style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: '180px', padding: '8px', borderRadius: '14px', border: '1px solid rgba(245, 158, 11, 0.3)', backgroundColor: '#171717', boxShadow: '0 12px 35px rgba(0,0,0,0.55)', zIndex: 60 }}
                 >
-                  <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setAuthDialogMode('signUp'); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
+                  <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setAuthFlowStage('checking'); setAuthDialogMode('signUp'); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
                     {t('signUp')}
                   </button>
-                  <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setAuthDialogMode('login'); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
+                  <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setAuthFlowStage('checking'); setAuthDialogMode('login'); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
                     {t('login')}
                   </button>
                 </motion.div>
@@ -634,8 +654,8 @@ export default function Home() {
               className="signup-dialog"
               role="dialog"
               aria-modal="true"
-              aria-labelledby="auth-dialog-title"
-              aria-describedby="auth-dialog-description"
+              aria-labelledby={authFlowStage === 'form' ? 'auth-dialog-title' : 'auth-check-title'}
+              aria-describedby={authFlowStage === 'form' ? 'auth-dialog-description' : 'auth-check-description'}
               initial={{ opacity: 0, y: 18, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -649,17 +669,52 @@ export default function Home() {
               >
                 <X size={19} />
               </button>
-              <Image
-                className="signup-logo"
-                src="/logo.JPG"
-                alt="Amorea"
-                width={64}
-                height={64}
-              />
-              <span className="signup-eyebrow">AMOREA</span>
-              <h2 id="auth-dialog-title">{t(authDialogMode === 'signUp' ? 'signUpTitle' : 'loginTitle')}</h2>
-              <p id="auth-dialog-description">{t(authDialogMode === 'signUp' ? 'signUpDescription' : 'loginDescription')}</p>
-              <div className="signup-providers">
+              <AnimatePresence mode="wait" initial={false}>
+                {authFlowStage !== 'form' ? (
+                  <motion.div
+                    key="security-check"
+                    className="auth-check-screen"
+                    role="status"
+                    aria-live="polite"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <span className="signup-eyebrow">AMOREA</span>
+                    <h2 id="auth-check-title">{t('securityCheckTitle')}</h2>
+                    {authFlowStage === 'checking' ? (
+                      <>
+                        <span className="auth-check-spinner" aria-hidden="true" />
+                        <p id="auth-check-description">{t('securityCheckRunning')}</p>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="auth-check-success" size={42} aria-hidden="true" />
+                        <p className="auth-check-complete">{t('securityCheckComplete')}</p>
+                        <p id="auth-check-description" className="auth-check-notice">{t('securityCheckNotice')}</p>
+                      </>
+                    )}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key={authDialogMode}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <Image
+                      className="signup-logo"
+                      src="/logo.JPG"
+                      alt="Amorea"
+                      width={64}
+                      height={64}
+                    />
+                    <span className="signup-eyebrow">AMOREA</span>
+                    <h2 id="auth-dialog-title">{t(authDialogMode === 'signUp' ? 'signUpTitle' : 'loginTitle')}</h2>
+                    <p id="auth-dialog-description">{t(authDialogMode === 'signUp' ? 'signUpDescription' : 'loginDescription')}</p>
+                    <div className="signup-providers">
                 <button type="button" className="signup-provider signup-provider-google" disabled>
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="#4285F4" d="M21.35 12.23c0-.71-.06-1.4-.18-2.06H12v3.9h5.24a4.48 4.48 0 0 1-1.95 2.94v2.4h3.16c1.85-1.7 2.9-4.2 2.9-7.18Z" />
@@ -703,7 +758,10 @@ export default function Home() {
                   <span>Instagram</span>
                   <small>{t('setupLater')}</small>
                 </button>
-              </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.section>
           </motion.div>
         )}
