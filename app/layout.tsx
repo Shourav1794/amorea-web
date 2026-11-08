@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Dancing_Script, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -10,6 +10,13 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const comingSoonFont = Dancing_Script({
+  variable: "--font-coming-soon",
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 // Amorea Professional SEO & Open Graph Metadata
@@ -36,7 +43,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         suppressHydrationWarning={true}
-        className={`${geistSans.variable} ${geistMono.variable} min-h-full flex flex-col antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${comingSoonFont.variable} min-h-full flex flex-col antialiased`}
       >
         {children}
       </body>
