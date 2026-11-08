@@ -245,7 +245,8 @@ const products: Product[] = [
 const sliderVideos = [
   '/promo1.mp4',
   '/promo2.mp4',
-  '/promo3.mp4'
+  '/promo3.mp4',
+  '/promo4.MP4',
 ];
 
 const categories: { translationKey: TranslationKey; value: string }[] = [
