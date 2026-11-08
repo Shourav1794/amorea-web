@@ -243,11 +243,13 @@ const products: Product[] = [
 ];
 
 const sliderVideos = [
+  '/promo4.MP4',
   '/promo1.mp4',
   '/promo2.mp4',
   '/promo3.mp4',
-  '/promo4.MP4',
 ];
+const videoTransitionDurationMs = 2600;
+const videoTransitionDurationSeconds = videoTransitionDurationMs / 1000;
 
 const categories: { translationKey: TranslationKey; value: string }[] = [
   { translationKey: 'allItems', value: 'all' },
@@ -273,6 +275,9 @@ export default function Home() {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const collectionsMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const backgroundVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const isVideoTransitioning = useRef(false);
+  const videoTransitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -325,11 +330,32 @@ export default function Home() {
   }, [isAccountOpen, isCollectionsOpen]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % sliderVideos.length);
-    }, 9000);
-    return () => clearInterval(timer);
+    const activeVideo = backgroundVideoRefs.current[currentSlide];
+    if (!activeVideo) return;
+
+    activeVideo.currentTime = 0;
+    void activeVideo.play().catch((error: unknown) => {
+      console.error(`Unable to play background video ${sliderVideos[currentSlide]}`, error);
+    });
+  }, [currentSlide]);
+
+  useEffect(() => () => {
+    if (videoTransitionTimer.current) clearTimeout(videoTransitionTimer.current);
+    backgroundVideoRefs.current.forEach((video) => video?.pause());
   }, []);
+
+  const advanceBackgroundVideo = () => {
+    if (isVideoTransitioning.current) return;
+
+    isVideoTransitioning.current = true;
+    const outgoingSlide = currentSlide;
+    setCurrentSlide((slide) => (slide + 1) % sliderVideos.length);
+    videoTransitionTimer.current = setTimeout(() => {
+      backgroundVideoRefs.current[outgoingSlide]?.pause();
+      isVideoTransitioning.current = false;
+      videoTransitionTimer.current = null;
+    }, videoTransitionDurationMs);
+  };
 
   const addToCart = (product: Product) => {
     setCart((prevCart) => {
@@ -421,12 +447,31 @@ export default function Home() {
             initial={false}
             animate={{
               opacity: index === currentSlide ? 1 : 0,
-              scale: index === currentSlide ? 1 : 1.06,
-              filter: index === currentSlide ? 'blur(0px)' : 'blur(10px)',
+              scale: index === currentSlide ? 1.04 : 1.08,
+              filter: index === currentSlide ? 'blur(0px)' : 'blur(8px)',
             }}
-            transition={{ duration: 1.6, ease: 'easeInOut' }}
+            transition={{ duration: videoTransitionDurationMs / 1000, ease: [0.45, 0, 0.55, 1] }}
           >
-            <video autoPlay loop muted playsInline preload="auto">
+            <video
+              ref={(video) => { backgroundVideoRefs.current[index] = video; }}
+              muted
+              playsInline
+              preload="auto"
+              onTimeUpdate={(event) => {
+                if (index !== currentSlide) return;
+                const { currentTime, duration } = event.currentTarget;
+                if (
+                  Number.isFinite(duration) &&
+                  duration > 0 &&
+                  duration - currentTime <= videoTransitionDurationSeconds + 0.25
+                ) {
+                  advanceBackgroundVideo();
+                }
+              }}
+              onEnded={() => {
+                if (index === currentSlide) advanceBackgroundVideo();
+              }}
+            >
               <source src={videoSrc} type="video/mp4" />
             </video>
           </motion.div>
