@@ -1,18 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Sparkles, Star, X, Send, Bot, Plus, Minus, Trash2, CheckCircle, UserRound, ChevronDown, Phone, ArrowUpRight } from 'lucide-react';
-interface Product {
-  id: number;
-  name: string;
-  category: string;
-  price: number;
-  image: string;
-  badge: string;
-  rating: number;
-}
+import { products, type Product } from '@/utils/catalog';
+import { createClient as createSupabaseClient } from '@/utils/supabase/client';
 
 interface CartItem extends Product {
   quantity: number;
@@ -52,14 +45,44 @@ const translations = {
     signUp: 'Sign-Up',
     login: 'Login',
     signUpTitle: 'Create your account',
-    signUpDescription: 'Choose a sign-up method. These options will be configured later.',
+    signUpDescription: 'Create a private account to save your orders and chat history.',
     loginTitle: 'Welcome back',
-    loginDescription: 'Choose a login method. These options will be configured later.',
-    setupLater: 'Coming soon',
-    securityCheckTitle: 'DATA security check',
-    securityCheckRunning: 'Running a brief security check...',
-    securityCheckComplete: 'Security Checking Completed...',
-    securityCheckNotice: 'This demo does not verify overall website security. It cannot access or save your media.',
+    loginDescription: 'Sign in to access your saved orders and chat history.',
+    whatsappTitle: 'Continue with WhatsApp',
+    whatsappDescription: 'Sign in or create your account using a one-time WhatsApp code.',
+    emailAddress: 'Email address',
+    password: 'Password',
+    passwordHint: 'At least 8 characters',
+    submitSignUp: 'Create account',
+    submitLogin: 'Sign in',
+    submitting: 'Please wait...',
+    authFailed: 'We could not complete sign-in. Check your details and try again.',
+    authCheckEmail: 'Check your email to confirm your account, then sign in.',
+    authRequired: 'Sign in to save your orders and chat history.',
+    authUnavailable: 'Authentication is currently unavailable. Please try again later.',
+    authProviderFailed: 'Social sign-in is unavailable. Try email and password instead.',
+    authCallbackFailed: 'Sign-in could not be completed. Please try again.',
+    continueWithGoogle: 'Continue with Google',
+    continueWithFacebook: 'Continue with Facebook',
+    continueWithWhatsApp: 'Continue with WhatsApp',
+    orContinueWithEmail: 'or continue with email',
+    phoneNumber: 'Phone number',
+    phoneNumberHint: 'Use a Bangladesh number such as 01712345678 or +8801712345678.',
+    whatsappOtp: 'WhatsApp verification code',
+    sendWhatsAppOtp: 'Send WhatsApp code',
+    verifyWhatsAppOtp: 'Verify and sign in',
+    whatsappOtpSent: 'We sent a verification code to your WhatsApp number.',
+    invalidPhoneNumber: 'Enter a valid phone number in international format.',
+    invalidOtp: 'Enter the 6-digit verification code.',
+    whatsappAuthFailed: 'WhatsApp verification failed. Check your number or code and try again.',
+    changePhoneNumber: 'Use a different phone number',
+    useEmailInstead: 'Use email or another sign-in method',
+    invalidEmail: 'Enter a valid email address.',
+    passwordTooShort: 'Password must be at least 8 characters long.',
+    signOut: 'Sign out',
+    orderSaveError: 'Unable to save your order. Please try again.',
+    chatSaveError: 'Unable to save your message. Please try again.',
+    orderSaving: 'Saving order...',
     allItems: 'All Items',
     pakistaniWear: 'Pakistani Wear',
     skincareBeauty: 'Skincare & Beauty',
@@ -141,14 +164,44 @@ const translations = {
     signUp: 'নিবন্ধন',
     login: 'লগ ইন',
     signUpTitle: 'আপনার অ্যাকাউন্ট তৈরি করুন',
-    signUpDescription: 'নিবন্ধনের মাধ্যম বেছে নিন। অপশনগুলো পরে কনফিগার করা হবে।',
+    signUpDescription: 'আপনার অর্ডার ও চ্যাটের ইতিহাস সংরক্ষণ করতে ব্যক্তিগত অ্যাকাউন্ট তৈরি করুন।',
     loginTitle: 'আবারও স্বাগতম',
-    loginDescription: 'লগ ইন করার মাধ্যম বেছে নিন। অপশনগুলো পরে কনফিগার করা হবে।',
-    setupLater: 'শীঘ্রই আসছে',
-    securityCheckTitle: 'DATA নিরাপত্তা যাচাই',
-    securityCheckRunning: 'একটি সংক্ষিপ্ত নিরাপত্তা যাচাই চলছে...',
-    securityCheckComplete: 'নিরাপত্তা যাচাই সম্পন্ন হয়েছে...',
-    securityCheckNotice: 'এই ডেমো পুরো ওয়েবসাইটের নিরাপত্তা যাচাই করে না। এটি আপনার মিডিয়া দেখতে বা সংরক্ষণ করতে পারে না।',
+    loginDescription: 'সংরক্ষিত অর্ডার ও চ্যাটের ইতিহাস দেখতে লগ ইন করুন।',
+    whatsappTitle: 'WhatsApp দিয়ে চালিয়ে যান',
+    whatsappDescription: 'WhatsApp-এর একবার ব্যবহারযোগ্য কোড দিয়ে লগ ইন বা অ্যাকাউন্ট তৈরি করুন।',
+    emailAddress: 'ইমেইল ঠিকানা',
+    password: 'পাসওয়ার্ড',
+    passwordHint: 'কমপক্ষে ৮ অক্ষর',
+    submitSignUp: 'অ্যাকাউন্ট তৈরি করুন',
+    submitLogin: 'লগ ইন',
+    submitting: 'অপেক্ষা করুন...',
+    authFailed: 'লগ ইন করা যায়নি। তথ্য যাচাই করে আবার চেষ্টা করুন।',
+    authCheckEmail: 'অ্যাকাউন্ট নিশ্চিত করতে ইমেইল দেখুন, তারপর লগ ইন করুন।',
+    authRequired: 'অর্ডার ও চ্যাটের ইতিহাস সংরক্ষণ করতে লগ ইন করুন।',
+    authUnavailable: 'এই মুহূর্তে প্রমাণীকরণ সেবা পাওয়া যাচ্ছে না। পরে আবার চেষ্টা করুন।',
+    authProviderFailed: 'সোশ্যাল লগ ইন এখন উপলব্ধ নয়। ইমেইল ও পাসওয়ার্ড দিয়ে চেষ্টা করুন।',
+    authCallbackFailed: 'লগ ইন সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।',
+    continueWithGoogle: 'Google দিয়ে চালিয়ে যান',
+    continueWithFacebook: 'Facebook দিয়ে চালিয়ে যান',
+    continueWithWhatsApp: 'WhatsApp দিয়ে চালিয়ে যান',
+    orContinueWithEmail: 'অথবা ইমেইল দিয়ে চালিয়ে যান',
+    phoneNumber: 'ফোন নম্বর',
+    phoneNumberHint: 'বাংলাদেশি নম্বর লিখুন, যেমন 01712345678 বা +8801712345678।',
+    whatsappOtp: 'WhatsApp যাচাইকরণ কোড',
+    sendWhatsAppOtp: 'WhatsApp কোড পাঠান',
+    verifyWhatsAppOtp: 'যাচাই করে লগ ইন করুন',
+    whatsappOtpSent: 'আপনার WhatsApp নম্বরে যাচাইকরণ কোড পাঠানো হয়েছে।',
+    invalidPhoneNumber: 'সঠিক আন্তর্জাতিক ফরম্যাটে ফোন নম্বর লিখুন।',
+    invalidOtp: '৬ সংখ্যার যাচাইকরণ কোড লিখুন।',
+    whatsappAuthFailed: 'WhatsApp যাচাইকরণ হয়নি। নম্বর বা কোড যাচাই করে আবার চেষ্টা করুন।',
+    changePhoneNumber: 'অন্য ফোন নম্বর ব্যবহার করুন',
+    useEmailInstead: 'ইমেইল বা অন্য পদ্ধতি ব্যবহার করুন',
+    invalidEmail: 'একটি বৈধ ইমেইল ঠিকানা লিখুন।',
+    passwordTooShort: 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।',
+    signOut: 'লগ আউট',
+    orderSaveError: 'অর্ডার সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
+    chatSaveError: 'বার্তা সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
+    orderSaving: 'অর্ডার সংরক্ষণ হচ্ছে...',
     allItems: 'সব পণ্য',
     pakistaniWear: 'পাকিস্তানি পোশাক',
     skincareBeauty: 'ত্বক ও সৌন্দর্যচর্চা',
@@ -207,63 +260,6 @@ const translations = {
   },
 } as const;
 
-const products: Product[] = [
-  {
-    id: 1,
-    name: 'Authentic Lawn Embroidered 3-Piece',
-    category: 'pakistani-wear',
-    price: 8500,
-    image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=800&auto=format&fit=crop',
-    badge: 'Authentic Pakistani',
-    rating: 5.0,
-  },
-  {
-    id: 2,
-    name: 'Luxury Chiffon Collection Velvet Suit',
-    category: 'pakistani-wear',
-    price: 12200,
-    image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?q=80&w=800&auto=format&fit=crop',
-    badge: 'Best Seller',
-    rating: 4.9,
-  },
-  {
-    id: 3,
-    name: 'Glow Essence Brightening Serum',
-    category: 'skincare',
-    price: 2450,
-    image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop',
-    badge: 'Imported',
-    rating: 4.8,
-  },
-  {
-    id: 4,
-    name: 'Hydrating Night Repair Cream',
-    category: 'skincare',
-    price: 1850,
-    image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?q=80&w=800&auto=format&fit=crop',
-    badge: 'Organic',
-    rating: 4.7,
-  },
-  {
-    id: 5,
-    name: 'Luxury Golden Chain Shoulder Bag',
-    category: 'bags',
-    price: 3950,
-    image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=800&auto=format&fit=crop',
-    badge: 'Exclusive',
-    rating: 4.9,
-  },
-  {
-    id: 6,
-    name: 'Embroidered Premium Velvet Heels',
-    category: 'footwear',
-    price: 4200,
-    image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?q=80&w=800&auto=format&fit=crop',
-    badge: 'New Arrival',
-    rating: 5.0,
-  },
-];
-
 const sliderVideos = [
   '/promo4.MP4',
   '/promo1.mp4',
@@ -272,6 +268,42 @@ const sliderVideos = [
 ];
 const videoTransitionDurationMs = 2600;
 const videoTransitionDurationSeconds = videoTransitionDurationMs / 1000;
+const authCallbackErrorEvent = 'amorea:auth-callback-error';
+
+function subscribeToAuthCallbackError(onChange: () => void) {
+  window.addEventListener('popstate', onChange);
+  window.addEventListener(authCallbackErrorEvent, onChange);
+  return () => {
+    window.removeEventListener('popstate', onChange);
+    window.removeEventListener(authCallbackErrorEvent, onChange);
+  };
+}
+
+function getAuthCallbackError() {
+  return new URLSearchParams(window.location.search).get('authError');
+}
+
+function clearAuthCallbackError() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has('authError')) return;
+  url.searchParams.delete('authError');
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  window.dispatchEvent(new Event(authCallbackErrorEvent));
+}
+
+function normalizePhoneNumber(value: string) {
+  const trimmedValue = value.trim();
+  const digits = trimmedValue.replace(/\D/g, '');
+  const normalized = trimmedValue.startsWith('+')
+    ? `+${digits}`
+    : digits.startsWith('880')
+      ? `+${digits}`
+      : digits.startsWith('0')
+        ? `+88${digits}`
+        : `+${digits}`;
+
+  return /^\+[1-9]\d{7,14}$/.test(normalized) ? normalized : null;
+}
 
 const categories: { translationKey: TranslationKey; value: string }[] = [
   { translationKey: 'allItems', value: 'all' },
@@ -295,8 +327,25 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
-  const [authDialogMode, setAuthDialogMode] = useState<'signUp' | 'login' | null>(null);
-  const [authFlowStage, setAuthFlowStage] = useState<'checking' | 'complete' | 'form'>('checking');
+  const [authDialogMode, setAuthDialogMode] = useState<'signUp' | 'login' | 'whatsapp' | null>(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authPhone, setAuthPhone] = useState('');
+  const [authOtp, setAuthOtp] = useState('');
+  const [whatsappOtpSent, setWhatsappOtpSent] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authFeedback, setAuthFeedback] = useState('');
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
+  const [userIdentifier, setUserIdentifier] = useState<string | null>(null);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
+  const supabase = useMemo(() => createSupabaseClient(), []);
+  const isSupabaseReady = Boolean(supabase);
+  const authCallbackError = useSyncExternalStore(
+    subscribeToAuthCallbackError,
+    getAuthCallbackError,
+    () => null,
+  );
+  const activeAuthDialogMode = authDialogMode ?? (authCallbackError ? 'login' : null);
   const collectionsMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const backgroundVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -308,6 +357,8 @@ export default function Home() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [orderError, setOrderError] = useState('');
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -315,6 +366,7 @@ export default function Home() {
   const [deliveryZone, setDeliveryZone] = useState<'inside' | 'outside'>('inside');
 
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatError, setChatError] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     { sender: 'ai', text: '', translationKey: 'chatWelcome' }
   ]);
@@ -331,7 +383,67 @@ export default function Home() {
   }, [language]);
 
   useEffect(() => {
-    if (!isAccountOpen && !isCollectionsOpen && !authDialogMode) return;
+    if (!supabase) return;
+
+    let active = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setUserIdentifier(session?.user.email ?? session?.user.phone ?? null);
+      if (!session) setMessages([{ sender: 'ai', text: '', translationKey: 'chatWelcome' }]);
+    });
+
+    void supabase.auth.getUser().then(({ data, error }) => {
+      if (error) {
+        console.error('Unable to verify the current customer session.', error);
+        return;
+      }
+      if (active) setUserIdentifier(data.user?.email ?? data.user?.phone ?? null);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!userIdentifier) return;
+
+    let active = true;
+    void fetch('/api/chat', { cache: 'no-store' })
+      .then(async (response) => {
+        const result = await response.json() as {
+          messages?: { sender: 'user' | 'assistant'; content: string }[];
+          error?: string;
+        };
+        if (!response.ok) throw new Error(result.error ?? 'Unable to load chat history.');
+        return result.messages ?? [];
+      })
+      .then((savedMessages) => {
+        if (!active) return;
+        setMessages([
+          { sender: 'ai', text: '', translationKey: 'chatWelcome' },
+          ...savedMessages.map((message): Message => (
+            message.sender === 'assistant'
+              ? { sender: 'ai', text: '', translationKey: message.content as TranslationKey }
+              : { sender: 'user', text: message.content }
+          )),
+        ]);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          console.error('Unable to restore the customer chat history.', error);
+          setChatError(translations[language].chatSaveError);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [userIdentifier, language]);
+
+  useEffect(() => {
+    if (!isAccountOpen && !isCollectionsOpen && !activeAuthDialogMode) return;
 
     const handlePointerDown = (event: PointerEvent) => {
       if (event.target instanceof Node) {
@@ -344,6 +456,7 @@ export default function Home() {
         setIsAccountOpen(false);
         setIsCollectionsOpen(false);
         setAuthDialogMode(null);
+        clearAuthCallbackError();
       }
     };
 
@@ -353,18 +466,7 @@ export default function Home() {
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isAccountOpen, isCollectionsOpen, authDialogMode]);
-
-  useEffect(() => {
-    if (!authDialogMode) return;
-
-    const completeTimer = setTimeout(() => setAuthFlowStage('complete'), 2500);
-    const formTimer = setTimeout(() => setAuthFlowStage('form'), 4500);
-    return () => {
-      clearTimeout(completeTimer);
-      clearTimeout(formTimer);
-    };
-  }, [authDialogMode]);
+  }, [isAccountOpen, isCollectionsOpen, activeAuthDialogMode]);
 
   useEffect(() => {
     const activeVideo = backgroundVideoRefs.current[currentSlide];
@@ -431,48 +533,279 @@ export default function Home() {
   const grandTotal = subtotal > 0 ? subtotal + deliveryCharge : 0;
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerName || !customerPhone || !customerAddress) return;
-
-    setOrderSuccess(true);
-    setTimeout(() => {
-      setCart([]);
+    if (!userIdentifier) {
       setIsCheckoutOpen(false);
-      setIsCartOpen(false);
-      setOrderSuccess(false);
-      setCustomerName('');
-      setCustomerPhone('');
-      setCustomerAddress('');
-    }, 3000);
+      setPendingCheckout(true);
+      setAuthError('');
+      setAuthFeedback(t('authRequired'));
+      setAuthDialogMode('login');
+      return;
+    }
+
+    setOrderError('');
+    setIsPlacingOrder(true);
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName,
+          customerPhone,
+          customerAddress,
+          deliveryZone,
+          items: cart.map(({ id, quantity }) => ({ id, quantity })),
+        }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) {
+        throw new Error(result.error ?? 'Unable to save the order.');
+      }
+
+      setOrderSuccess(true);
+      setTimeout(() => {
+        setCart([]);
+        setIsCheckoutOpen(false);
+        setIsCartOpen(false);
+        setOrderSuccess(false);
+        setCustomerName('');
+        setCustomerPhone('');
+        setCustomerAddress('');
+      }, 3000);
+    } catch (error) {
+      console.error('Unable to place customer order.', error);
+      setOrderError(t('orderSaveError'));
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   const filteredProducts = activeCategory === 'all' 
     ? products 
     : products.filter((p) => p.category === activeCategory);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
+    if (!userIdentifier) {
+      setAuthError('');
+      setAuthFeedback(t('authRequired'));
+      setAuthDialogMode('login');
+      return;
+    }
 
-    const userText = inputMessage;
-    setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
+    const userText = inputMessage.trim();
     setInputMessage('');
+    setChatError('');
+    setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
 
-    setTimeout(() => {
-      let aiReply: TranslationKey = 'chatDefaultReply';
-      const lower = userText.toLowerCase();
-
-      if (lower.includes('pakistani') || lower.includes('dress') || lower.includes('ড্রেস') || lower.includes('পোশাক')) {
-        aiReply = 'chatClothingReply';
-      } else if (lower.includes('skin') || lower.includes('serum') || lower.includes('cream') || lower.includes('ত্বক')) {
-        aiReply = 'chatSkincareReply';
-      } else if (lower.includes('price') || lower.includes('dam') || lower.includes('দাম')) {
-        aiReply = 'chatPriceReply';
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, language }),
+      });
+      const result = await response.json() as { replyKey?: TranslationKey; error?: string };
+      if (!response.ok || !result.replyKey) {
+        throw new Error(result.error ?? 'Unable to save the message.');
       }
 
-      setMessages((prev) => [...prev, { sender: 'ai', text: '', translationKey: aiReply }]);
-    }, 1000);
+      setMessages((prev) => [...prev, { sender: 'ai', text: '', translationKey: result.replyKey }]);
+    } catch (error) {
+      console.error('Unable to save customer chat input.', error);
+      setChatError(t('chatSaveError'));
+    }
+  };
+
+  const handleAuthSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const mode = authDialogMode ?? (authCallbackError ? 'login' : null);
+    if (!mode || mode === 'whatsapp' || !supabase) {
+      setAuthError(t('authUnavailable'));
+      return;
+    }
+
+    const normalizedEmail = authEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setAuthError(t('invalidEmail'));
+      setAuthFeedback('');
+      return;
+    }
+
+    if (mode === 'signUp' && authPassword.length < 8) {
+      setAuthError(t('passwordTooShort'));
+      setAuthFeedback('');
+      return;
+    }
+
+    setAuthError('');
+    setAuthFeedback('');
+    setIsAuthSubmitting(true);
+    try {
+      if (mode === 'signUp') {
+        const { data, error } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password: authPassword,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/confirm?next=/`,
+          },
+        });
+        if (error) throw error;
+
+        if (!data.session) {
+          setAuthFeedback(t('authCheckEmail'));
+          setAuthPassword('');
+          return;
+        }
+        setUserIdentifier(data.user?.email ?? normalizedEmail);
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password: authPassword,
+        });
+        if (error) throw error;
+        setUserIdentifier(data.user.email ?? normalizedEmail);
+      }
+
+      setAuthDialogMode(null);
+      clearAuthCallbackError();
+      setAuthEmail('');
+      setAuthPassword('');
+      setAuthError('');
+      setAuthFeedback('');
+      if (pendingCheckout) {
+        setPendingCheckout(false);
+        setIsCartOpen(false);
+        setIsCheckoutOpen(true);
+      }
+    } catch (error) {
+      console.error('Customer authentication failed.', error);
+      setAuthError(t('authFailed'));
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  };
+
+  const handleWhatsAppAuthSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!supabase) {
+      setAuthError(t('authUnavailable'));
+      return;
+    }
+
+    const normalizedPhone = normalizePhoneNumber(authPhone);
+    if (!normalizedPhone) {
+      setAuthError(t('invalidPhoneNumber'));
+      setAuthFeedback('');
+      return;
+    }
+    if (whatsappOtpSent && !/^\d{6}$/.test(authOtp.trim())) {
+      setAuthError(t('invalidOtp'));
+      setAuthFeedback('');
+      return;
+    }
+
+    setAuthError('');
+    setAuthFeedback('');
+    setIsAuthSubmitting(true);
+    try {
+      if (!whatsappOtpSent) {
+        const { error } = await supabase.auth.signInWithOtp({
+          phone: normalizedPhone,
+          options: { channel: 'whatsapp' },
+        });
+        if (error) throw error;
+        setAuthPhone(normalizedPhone);
+        setWhatsappOtpSent(true);
+        setAuthFeedback(t('whatsappOtpSent'));
+        return;
+      }
+
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: normalizedPhone,
+        token: authOtp.trim(),
+        type: 'sms',
+      });
+      if (error) throw error;
+      if (!data.user) throw new Error('Phone verification succeeded without returning a customer account.');
+
+      setUserIdentifier(data.user.email ?? data.user.phone ?? normalizedPhone);
+      setAuthDialogMode(null);
+      clearAuthCallbackError();
+      setAuthPhone('');
+      setAuthOtp('');
+      setWhatsappOtpSent(false);
+      if (pendingCheckout) {
+        setPendingCheckout(false);
+        setIsCartOpen(false);
+        setIsCheckoutOpen(true);
+      }
+    } catch (error) {
+      console.error('Customer WhatsApp authentication failed.', error);
+      setAuthError(t('whatsappAuthFailed'));
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  };
+
+  const openWhatsAppAuth = () => {
+    setAuthError('');
+    setAuthFeedback('');
+    setAuthPhone('');
+    setAuthOtp('');
+    setWhatsappOtpSent(false);
+    setAuthDialogMode('whatsapp');
+  };
+
+  const resetWhatsAppAuth = () => {
+    setAuthPhone('');
+    setAuthOtp('');
+    setWhatsappOtpSent(false);
+    setAuthError('');
+    setAuthFeedback('');
+  };
+
+  const handleSocialAuth = async (provider: 'google' | 'facebook') => {
+    if (!supabase) {
+      setAuthError(t('authUnavailable'));
+      return;
+    }
+
+    setAuthError('');
+    setAuthFeedback('');
+    setIsAuthSubmitting(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/confirm?next=/`,
+        },
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error(`Customer ${provider} authentication failed.`, error);
+      setAuthError(t('authProviderFailed'));
+      setIsAuthSubmitting(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (!supabase) {
+      setAuthError(t('authUnavailable'));
+      return;
+    }
+
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Unable to sign out the customer.', error);
+      setAuthError(t('authFailed'));
+      return;
+    }
+    setUserIdentifier(null);
+    setIsAccountOpen(false);
+    setIsChatOpen(false);
+    setPendingCheckout(false);
   };
 
   return (
@@ -649,12 +982,24 @@ export default function Home() {
                   className="account-menu"
                   style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: '180px', padding: '8px', borderRadius: '14px', border: '1px solid rgba(245, 158, 11, 0.3)', backgroundColor: '#171717', boxShadow: '0 12px 35px rgba(0,0,0,0.55)', zIndex: 60 }}
                 >
-                  <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setAuthFlowStage('checking'); setAuthDialogMode('signUp'); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
-                    {t('signUp')}
-                  </button>
-                  <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setAuthFlowStage('checking'); setAuthDialogMode('login'); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
-                    {t('login')}
-                  </button>
+                  {userIdentifier ? (
+                    <>
+                      {authError && <p className="auth-message auth-message-error" role="alert">{authError}</p>}
+                      <p className="account-email">{userIdentifier}</p>
+                      <button type="button" role="menuitem" onClick={() => void handleSignOut()} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
+                        {t('signOut')}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setAuthError(''); setAuthFeedback(''); setAuthDialogMode('signUp'); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
+                        {t('signUp')}
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => { setIsAccountOpen(false); setAuthError(''); setAuthFeedback(''); setAuthDialogMode('login'); }} style={{ width: '100%', padding: '11px 12px', border: 0, borderRadius: '9px', background: 'transparent', color: '#f5f5f5', textAlign: 'left', fontSize: '14px', cursor: 'pointer' }}>
+                        {t('login')}
+                      </button>
+                    </>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -663,7 +1008,7 @@ export default function Home() {
       </nav>
 
       <AnimatePresence>
-        {authDialogMode && (
+        {activeAuthDialogMode && (
           <motion.div
             className="signup-overlay"
             role="presentation"
@@ -671,15 +1016,19 @@ export default function Home() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setAuthDialogMode(null);
+              if (event.target === event.currentTarget) {
+                setAuthDialogMode(null);
+                setPendingCheckout(false);
+                clearAuthCallbackError();
+              }
             }}
           >
             <motion.section
               className="signup-dialog"
               role="dialog"
               aria-modal="true"
-              aria-labelledby={authFlowStage === 'form' ? 'auth-dialog-title' : 'auth-check-title'}
-              aria-describedby={authFlowStage === 'form' ? 'auth-dialog-description' : 'auth-check-description'}
+              aria-labelledby="auth-dialog-title"
+              aria-describedby="auth-dialog-description"
               initial={{ opacity: 0, y: 18, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -689,103 +1038,192 @@ export default function Home() {
                 type="button"
                 className="signup-close"
                 aria-label={t('close')}
-                onClick={() => setAuthDialogMode(null)}
+                onClick={() => {
+                  setAuthDialogMode(null);
+                  setPendingCheckout(false);
+                  clearAuthCallbackError();
+                }}
               >
                 <X size={19} />
               </button>
-              <AnimatePresence mode="wait" initial={false}>
-                {authFlowStage !== 'form' ? (
-                  <motion.div
-                    key="security-check"
-                    className="auth-check-screen"
-                    role="status"
-                    aria-live="polite"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.18 }}
+              <Image className="signup-logo" src="/logo.JPG" alt="Amorea" width={64} height={64} />
+              <span className="signup-eyebrow">AMOREA</span>
+              <h2 id="auth-dialog-title">
+                {t(activeAuthDialogMode === 'whatsapp'
+                  ? 'whatsappTitle'
+                  : activeAuthDialogMode === 'signUp'
+                    ? 'signUpTitle'
+                    : 'loginTitle')}
+              </h2>
+              <p id="auth-dialog-description">
+                {t(activeAuthDialogMode === 'whatsapp'
+                  ? 'whatsappDescription'
+                  : activeAuthDialogMode === 'signUp'
+                    ? 'signUpDescription'
+                    : 'loginDescription')}
+              </p>
+              {activeAuthDialogMode === 'whatsapp' ? (
+                <form className="auth-form" onSubmit={handleWhatsAppAuthSubmit}>
+                  <label htmlFor="auth-phone">{t('phoneNumber')}</label>
+                  <input
+                    id="auth-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    maxLength={20}
+                    required
+                    value={authPhone}
+                    onChange={(event) => setAuthPhone(event.target.value)}
+                    aria-describedby="auth-phone-hint"
+                  />
+                  <small id="auth-phone-hint">{t('phoneNumberHint')}</small>
+                  {whatsappOtpSent && (
+                    <>
+                      <label htmlFor="auth-whatsapp-otp">{t('whatsappOtp')}</label>
+                      <input
+                        id="auth-whatsapp-otp"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        pattern="[0-9]{6}"
+                        required
+                        value={authOtp}
+                        onChange={(event) => setAuthOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      />
+                      <button type="button" className="auth-mode-toggle" onClick={resetWhatsAppAuth}>
+                        {t('changePhoneNumber')}
+                      </button>
+                    </>
+                  )}
+                  {authError && <p className="auth-message auth-message-error" role="alert">{authError}</p>}
+                  {authFeedback && <p className="auth-message auth-message-success" role="status">{authFeedback}</p>}
+                  <button
+                    type="submit"
+                    className="auth-submit"
+                    disabled={
+                      isAuthSubmitting ||
+                      !isSupabaseReady ||
+                      (whatsappOtpSent
+                        ? !/^\d{6}$/.test(authOtp.trim())
+                        : !normalizePhoneNumber(authPhone))
+                    }
                   >
-                    <span className="signup-eyebrow">AMOREA</span>
-                    <h2 id="auth-check-title">{t('securityCheckTitle')}</h2>
-                    {authFlowStage === 'checking' ? (
-                      <>
-                        <span className="auth-check-spinner" aria-hidden="true" />
-                        <p id="auth-check-description">{t('securityCheckRunning')}</p>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="auth-check-success" size={42} aria-hidden="true" />
-                        <p className="auth-check-complete">{t('securityCheckComplete')}</p>
-                        <p id="auth-check-description" className="auth-check-notice">{t('securityCheckNotice')}</p>
-                      </>
-                    )}
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key={authDialogMode}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    <Image
-                      className="signup-logo"
-                      src="/logo.JPG"
-                      alt="Amorea"
-                      width={64}
-                      height={64}
+                    {isAuthSubmitting
+                      ? t('submitting')
+                      : t(whatsappOtpSent ? 'verifyWhatsAppOtp' : 'sendWhatsAppOtp')}
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <div className="auth-social-buttons">
+                    <button
+                      type="button"
+                      className="auth-social-button"
+                      onClick={() => void handleSocialAuth('google')}
+                      disabled={isAuthSubmitting || !isSupabaseReady}
+                    >
+                      <svg viewBox="0 0 48 48" aria-hidden="true">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z" />
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.74 7.18l7.72 5.99c4.51-4.17 7.06-10.31 7.06-17.64Z" />
+                        <path fill="#FBBC05" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.12.75-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.54 2.56 10.78l7.97-6.19Z" />
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.91-5.81l-7.72-5.99c-2.14 1.45-4.89 2.3-8.19 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z" />
+                      </svg>
+                      {t('continueWithGoogle')}
+                    </button>
+                    <button
+                      type="button"
+                      className="auth-social-button"
+                      onClick={() => void handleSocialAuth('facebook')}
+                      disabled={isAuthSubmitting || !isSupabaseReady}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#1877F2" d="M24 12a12 12 0 1 0-13.875 11.86v-8.39H7.08V12h3.045V9.35c0-3.005 1.79-4.665 4.53-4.665 1.312 0 2.685.234 2.685.234v2.95h-1.513c-1.49 0-1.955.925-1.955 1.875V12h3.328l-.532 3.47h-2.796v8.39A12.004 12.004 0 0 0 24 12Z" />
+                      </svg>
+                      {t('continueWithFacebook')}
+                    </button>
+                    <button type="button" className="auth-social-button" onClick={openWhatsAppAuth}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#25D366" d="M12 1.5A10.4 10.4 0 0 0 3.1 17.3L1.7 22.5l5.3-1.4A10.5 10.5 0 1 0 12 1.5Z" />
+                        <path fill="#fff" d="M17.9 14.9c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.6-1.8-1.8-2.1-.2-.3 0-.5.1-.6l.5-.6c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6-.1-.2-.7-1.7-.9-2.3-.2-.6-.5-.5-.7-.5H7.8c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.6s1.1 3 1.2 3.2c.2.2 2.2 3.4 5.4 4.7.8.3 1.4.5 1.8.6.8.2 1.5.2 2 .1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.3-.3-.6-.5Z" />
+                      </svg>
+                      {t('continueWithWhatsApp')}
+                    </button>
+                  </div>
+                  <div className="auth-divider"><span>{t('orContinueWithEmail')}</span></div>
+                  {authCallbackError && (
+                    <p className="auth-message auth-message-error" role="alert">
+                      {t(authCallbackError === 'confirmation' ? 'authCallbackFailed' : 'authProviderFailed')}
+                    </p>
+                  )}
+                  <form className="auth-form" onSubmit={handleAuthSubmit}>
+                    <label htmlFor="auth-email">{t('emailAddress')}</label>
+                    <input
+                      id="auth-email"
+                      type="email"
+                      autoComplete="email"
+                      maxLength={254}
+                      required
+                      value={authEmail}
+                      onChange={(event) => setAuthEmail(event.target.value)}
                     />
-                    <span className="signup-eyebrow">AMOREA</span>
-                    <h2 id="auth-dialog-title">{t(authDialogMode === 'signUp' ? 'signUpTitle' : 'loginTitle')}</h2>
-                    <p id="auth-dialog-description">{t(authDialogMode === 'signUp' ? 'signUpDescription' : 'loginDescription')}</p>
-                    <div className="signup-providers">
-                <button type="button" className="signup-provider signup-provider-google" disabled>
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#4285F4" d="M21.35 12.23c0-.71-.06-1.4-.18-2.06H12v3.9h5.24a4.48 4.48 0 0 1-1.95 2.94v2.4h3.16c1.85-1.7 2.9-4.2 2.9-7.18Z" />
-                    <path fill="#34A853" d="M12 21.75c2.64 0 4.86-.88 6.48-2.38l-3.16-2.4c-.88.59-2 .94-3.32.94-2.55 0-4.72-1.72-5.5-4.04H3.23v2.47A9.78 9.78 0 0 0 12 21.75Z" />
-                    <path fill="#FBBC05" d="M6.5 13.87a5.88 5.88 0 0 1 0-3.74V7.66H3.23a9.75 9.75 0 0 0 0 8.68l3.27-2.47Z" />
-                    <path fill="#EA4335" d="M12 6.1c1.44 0 2.73.5 3.75 1.5l2.81-2.81A9.4 9.4 0 0 0 12 2.25a9.78 9.78 0 0 0-8.77 5.4L6.5 10.1c.78-2.32 2.95-4 5.5-4Z" />
-                  </svg>
-                  <span>Google</span>
-                  <small>{t('setupLater')}</small>
+                    <label htmlFor="auth-password">{t('password')}</label>
+                    <input
+                      id="auth-password"
+                      type="password"
+                      autoComplete={activeAuthDialogMode === 'signUp' ? 'new-password' : 'current-password'}
+                      minLength={activeAuthDialogMode === 'signUp' ? 8 : undefined}
+                      required
+                      value={authPassword}
+                      onChange={(event) => setAuthPassword(event.target.value)}
+                      aria-describedby={activeAuthDialogMode === 'signUp' ? 'auth-password-hint' : undefined}
+                    />
+                    {activeAuthDialogMode === 'signUp' && <small id="auth-password-hint">{t('passwordHint')}</small>}
+                    {authError && <p className="auth-message auth-message-error" role="alert">{authError}</p>}
+                    {authFeedback && <p className="auth-message auth-message-success" role="status">{authFeedback}</p>}
+                    <button
+                      type="submit"
+                      className="auth-submit"
+                      disabled={
+                        isAuthSubmitting ||
+                        !isSupabaseReady ||
+                        !authEmail.trim() ||
+                        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authEmail.trim()) ||
+                        (!authPassword && activeAuthDialogMode === 'login') ||
+                        (activeAuthDialogMode === 'signUp' && authPassword.length < 8)
+                      }
+                    >
+                      {isAuthSubmitting
+                        ? t('submitting')
+                        : t(activeAuthDialogMode === 'signUp' ? 'submitSignUp' : 'submitLogin')}
+                    </button>
+                  </form>
+                </>
+              )}
+              {activeAuthDialogMode === 'whatsapp' ? (
+                <button
+                  type="button"
+                  className="auth-mode-toggle"
+                  onClick={() => {
+                    resetWhatsAppAuth();
+                    setAuthDialogMode('login');
+                  }}
+                >
+                  {t('useEmailInstead')}
                 </button>
-                <button type="button" className="signup-provider signup-provider-facebook" disabled>
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#1877F2" d="M24 12a12 12 0 1 0-13.88 11.86v-8.4H7.08V12h3.04V9.36c0-3 1.79-4.66 4.52-4.66 1.31 0 2.68.23 2.68.23v2.95h-1.51c-1.49 0-1.95.92-1.95 1.87V12h3.32l-.53 3.46h-2.79v8.4A12 12 0 0 0 24 12Z" />
-                  </svg>
-                  <span>Facebook</span>
-                  <small>{t('setupLater')}</small>
+              ) : (
+                <button
+                  type="button"
+                  className="auth-mode-toggle"
+                  onClick={() => {
+                    setAuthDialogMode((mode) => (mode ?? activeAuthDialogMode) === 'signUp' ? 'login' : 'signUp');
+                    setAuthError('');
+                    setAuthFeedback('');
+                  }}
+                >
+                  {t(activeAuthDialogMode === 'signUp' ? 'login' : 'signUp')}
                 </button>
-                <button type="button" className="signup-provider signup-provider-whatsapp" disabled>
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#25D366" d="M12 1.5A10.4 10.4 0 0 0 3.1 17.3L1.7 22.5l5.3-1.4A10.5 10.5 0 1 0 12 1.5Z" />
-                    <path fill="#fff" d="M17.9 14.9c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.6-1.8-1.8-2.1-.2-.3 0-.5.1-.6l.5-.6c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6-.1-.2-.7-1.7-.9-2.3-.2-.6-.5-.5-.7-.5H7.8c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.6s1.1 3 1.2 3.2c.2.2 2.2 3.4 5.4 4.7.8.3 1.4.5 1.8.6.8.2 1.5.2 2 .1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.3-.3-.6-.5Z" />
-                  </svg>
-                  <span>WhatsApp</span>
-                  <small>{t('setupLater')}</small>
-                </button>
-                <button type="button" className="signup-provider signup-provider-instagram" disabled>
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <defs>
-                      <linearGradient id="signup-instagram-gradient" x1="0" y1="1" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#FFDC80" />
-                        <stop offset="35%" stopColor="#F77737" />
-                        <stop offset="68%" stopColor="#E1306C" />
-                        <stop offset="100%" stopColor="#833AB4" />
-                      </linearGradient>
-                    </defs>
-                    <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#signup-instagram-gradient)" />
-                    <rect x="6" y="6" width="12" height="12" rx="3.5" fill="none" stroke="#fff" strokeWidth="1.8" />
-                    <circle cx="12" cy="12" r="3" fill="none" stroke="#fff" strokeWidth="1.8" />
-                    <circle cx="17.2" cy="6.9" r="1.1" fill="#fff" />
-                  </svg>
-                  <span>Instagram</span>
-                  <small>{t('setupLater')}</small>
-                </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              )}
             </motion.section>
           </motion.div>
         )}
@@ -1180,8 +1618,16 @@ export default function Home() {
                   </div>
                   <button
                     onClick={() => {
-                      setIsCartOpen(false);
-                      setIsCheckoutOpen(true);
+                      if (!userIdentifier) {
+                        setPendingCheckout(true);
+                        setAuthError('');
+                        setAuthFeedback(t('authRequired'));
+                        setAuthDialogMode('login');
+                      } else {
+                        setIsCartOpen(false);
+                        setOrderError('');
+                        setIsCheckoutOpen(true);
+                      }
                     }}
                     style={{ width: '100%', background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', fontWeight: 'bold', padding: '14px', borderRadius: '12px', border: 'none', cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.3)' }}
                   >
@@ -1316,11 +1762,13 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {orderError && <p className="order-error" role="alert">{orderError}</p>}
                   <button
                     type="submit"
-                    style={{ width: '100%', background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', fontWeight: 'bold', padding: '14px', borderRadius: '12px', border: 'none', cursor: 'pointer', marginTop: '12px', boxShadow: '0 0 20px rgba(245,158,11,0.3)' }}
+                    disabled={isPlacingOrder}
+                    style={{ width: '100%', background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', fontWeight: 'bold', padding: '14px', borderRadius: '12px', border: 'none', cursor: isPlacingOrder ? 'wait' : 'pointer', marginTop: '12px', boxShadow: '0 0 20px rgba(245,158,11,0.3)', opacity: isPlacingOrder ? 0.7 : 1 }}
                   >
-                    {t('confirmOrder')}
+                    {isPlacingOrder ? t('orderSaving') : t('confirmOrder')}
                   </button>
                 </form>
               )}
@@ -1390,6 +1838,7 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
+                {chatError && <p className="chat-error" role="alert">{chatError}</p>}
               </div>
 
               <form onSubmit={handleSendMessage} style={{ padding: '12px', borderTop: '1px solid #262626', backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', gap: '8px' }}>

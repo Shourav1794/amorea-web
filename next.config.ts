@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["192.168.1.198"],
+  experimental: {
+    agentUpgrade: "security",
+  },
+  allowedDevOrigins: [
+    "localhost",
+    "127.0.0.1",
+    "192.168.1.197",
+    "192.168.1.198",
+  ],
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
