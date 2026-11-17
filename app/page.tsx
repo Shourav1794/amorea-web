@@ -2,13 +2,21 @@
 
 import React, { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, Sparkles, Star, X, Send, Bot, Plus, Minus, Trash2, CheckCircle, UserRound, ChevronDown, Phone, ArrowUpRight } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { ShoppingBag, Sparkles, Star, X, Send, Bot, Plus, Minus, Trash2, CheckCircle, UserRound, ChevronDown, Phone, ArrowUpRight, ZoomIn } from 'lucide-react';
 import { products, type Product } from '@/utils/catalog';
+import { clothingSizes, getProductSize, isSizedProduct, type ProductSize } from '@/utils/cart';
 import { createClient as createSupabaseClient } from '@/utils/supabase/client';
 
 interface CartItem extends Product {
+  size: ProductSize;
   quantity: number;
+}
+
+interface InventoryItem {
+  product_id: number;
+  size: string;
+  stock: number;
 }
 
 interface Message {
@@ -110,7 +118,20 @@ const translations = {
     product4: 'Hydrating Night Repair Cream',
     product5: 'Luxury Golden Chain Shoulder Bag',
     product6: 'Embroidered Premium Velvet Heels',
+    productQuickView: 'Quick view',
     addToCart: 'Add to Cart',
+    selectSize: 'Select size',
+    sizeSmall: 'Small (S)',
+    sizeMedium: 'Medium (M)',
+    sizeLarge: 'Large (L)',
+    sizeExtraLarge: 'Extra Large (XL)',
+    stockAvailable: 'Available',
+    outOfStock: 'Out of stock',
+    stockLoading: 'Checking stock...',
+    inventoryLoadError: 'Availability could not be loaded. Ordering is temporarily unavailable.',
+    cartSyncError: 'Your cart could not be synced. Please try again.',
+    quantityLimit: 'The maximum quantity per item is 999.',
+    stockConflict: 'Stock changed before checkout. Review availability and try again.',
     shoppingCart: 'Shopping Cart',
     emptyCart: 'Your cart is currently empty.',
     subtotal: 'Subtotal:',
@@ -229,7 +250,20 @@ const translations = {
     product4: 'হাইড্রেটিং নাইট রিপেয়ার ক্রিম',
     product5: 'সোনালি চেইন শোল্ডার ব্যাগ',
     product6: 'এমব্রয়ডারি করা প্রিমিয়াম ভেলভেট হিল',
+    productQuickView: 'বিস্তারিত দেখুন',
     addToCart: 'কার্টে যোগ করুন',
+    selectSize: 'সাইজ বেছে নিন',
+    sizeSmall: 'Small (S)',
+    sizeMedium: 'Medium (M)',
+    sizeLarge: 'Large (L)',
+    sizeExtraLarge: 'Extra Large (XL)',
+    stockAvailable: 'মজুত আছে',
+    outOfStock: 'স্টকে নেই',
+    stockLoading: 'স্টক যাচাই হচ্ছে...',
+    inventoryLoadError: 'স্টকের তথ্য পাওয়া যায়নি। আপাতত অর্ডার করা যাচ্ছে না।',
+    cartSyncError: 'কার্ট সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
+    quantityLimit: 'একটি পণ্যের সর্বোচ্চ পরিমাণ ৯৯৯।',
+    stockConflict: 'চেকআউটের আগে স্টক পরিবর্তিত হয়েছে। স্টক দেখে আবার চেষ্টা করুন।',
     shoppingCart: 'শপিং কার্ট',
     emptyCart: 'আপনার কার্ট এখন খালি।',
     subtotal: 'পণ্যের মোট:',
@@ -269,6 +303,43 @@ const sliderVideos = [
 const videoTransitionDurationMs = 2600;
 const videoTransitionDurationSeconds = videoTransitionDurationMs / 1000;
 const authCallbackErrorEvent = 'amorea:auth-callback-error';
+const guestCartStorageKey = 'amorea:guest-cart';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toCartItem(productId: number, sizeValue: unknown, quantity: number): CartItem {
+  const product = products.find((candidate) => candidate.id === productId);
+  const size = getProductSize(productId, sizeValue);
+  if (!product || size === null || !Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+    throw new Error('The saved cart contains an invalid item.');
+  }
+  return { ...product, size, quantity };
+}
+
+function readGuestCart() {
+  const saved = window.localStorage.getItem(guestCartStorageKey);
+  if (!saved) return [];
+
+  const parsed: unknown = JSON.parse(saved);
+  if (!Array.isArray(parsed)) throw new Error('The saved cart is not a valid list.');
+  return parsed.map((value) => {
+    if (!isRecord(value)
+      || typeof value.productId !== 'number'
+      || typeof value.quantity !== 'number') {
+      throw new Error('The saved cart contains an invalid item.');
+    }
+    return toCartItem(value.productId, value.size, value.quantity);
+  });
+}
+
+function saveGuestCart(cart: CartItem[]) {
+  window.localStorage.setItem(
+    guestCartStorageKey,
+    JSON.stringify(cart.map(({ id, size, quantity }) => ({ productId: id, size, quantity }))),
+  );
+}
 
 function subscribeToAuthCallbackError(onChange: () => void) {
   window.addEventListener('popstate', onChange);
@@ -337,7 +408,7 @@ export default function Home() {
   const [authFeedback, setAuthFeedback] = useState('');
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
   const [userIdentifier, setUserIdentifier] = useState<string | null>(null);
-  const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const supabase = useMemo(() => createSupabaseClient(), []);
   const isSupabaseReady = Boolean(supabase);
   const authCallbackError = useSyncExternalStore(
@@ -348,22 +419,52 @@ export default function Home() {
   const activeAuthDialogMode = authDialogMode ?? (authCallbackError ? 'login' : null);
   const collectionsMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const quickViewDialogRef = useRef<HTMLElement>(null);
+  const quickViewCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const quickViewTriggerRef = useRef<HTMLButtonElement>(null);
   const backgroundVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const isVideoTransitioning = useRef(false);
   const videoTransitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cartSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const currentUserIdRef = useRef<string | null>(null);
+  const pendingCheckoutRef = useRef(false);
   const [showVideoPoster, setShowVideoPoster] = useState(true);
   
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [storedCart, setStoredCart] = useState<CartItem[]>([]);
+  const [cartOwnerId, setCartOwnerId] = useState<string | null>(null);
+  const [cartLoaded, setCartLoaded] = useState(false);
+  const [pendingCartSaves, setPendingCartSaves] = useState(0);
+  const [cartErrorKey, setCartErrorKey] = useState<TranslationKey | null>(null);
+  const [selectedSizes, setSelectedSizes] = useState<Record<number, ProductSize>>({});
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [inventoryLoaded, setInventoryLoaded] = useState(false);
+  const [inventoryFailed, setInventoryFailed] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderError, setOrderError] = useState('');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [deliveryZone, setDeliveryZone] = useState<'inside' | 'outside'>('inside');
+
+  const cart = cartOwnerId === currentUserId ? storedCart : [];
+  const isCartReady = cartOwnerId === currentUserId && cartLoaded;
+  const setCart = (items: CartItem[]) => {
+    const ownerId = currentUserIdRef.current;
+    setStoredCart(items);
+    setCartOwnerId(ownerId);
+    setCartLoaded(true);
+    if (pendingCheckoutRef.current && ownerId) {
+      pendingCheckoutRef.current = false;
+      setIsCartOpen(false);
+      setIsCheckoutOpen(true);
+    }
+  };
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatError, setChatError] = useState('');
@@ -389,6 +490,8 @@ export default function Home() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
       setUserIdentifier(session?.user.email ?? session?.user.phone ?? null);
+      currentUserIdRef.current = session?.user.id ?? null;
+      setCurrentUserId(currentUserIdRef.current);
       if (!session) setMessages([{ sender: 'ai', text: '', translationKey: 'chatWelcome' }]);
     });
 
@@ -397,7 +500,11 @@ export default function Home() {
         console.error('Unable to verify the current customer session.', error);
         return;
       }
-      if (active) setUserIdentifier(data.user?.email ?? data.user?.phone ?? null);
+      if (active) {
+        setUserIdentifier(data.user?.email ?? data.user?.phone ?? null);
+        currentUserIdRef.current = data.user?.id ?? null;
+        setCurrentUserId(currentUserIdRef.current);
+      }
     });
 
     return () => {
@@ -405,6 +512,101 @@ export default function Home() {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    let active = true;
+
+    let guestCart: CartItem[] = [];
+    try {
+      guestCart = readGuestCart();
+    } catch (error) {
+      console.error('Unable to read the saved guest cart.', error);
+      queueMicrotask(() => {
+        if (active) setCartErrorKey('cartSyncError');
+      });
+    }
+
+    if (!currentUserId) {
+      queueMicrotask(() => {
+        if (!active || currentUserIdRef.current !== null) return;
+        setCart(guestCart);
+        setCartErrorKey(null);
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    void fetch('/api/cart', { cache: 'no-store' })
+      .then(async (response) => {
+        const result = await response.json() as {
+          items?: { product_id: number; size: string; quantity: number }[];
+          error?: string;
+        };
+        if (!response.ok || !Array.isArray(result.items)) {
+          throw new Error(result.error ?? 'Unable to load your saved cart.');
+        }
+        return result.items.map((item) => toCartItem(item.product_id, item.size, item.quantity));
+      })
+      .then(async (savedCart) => {
+        if (!active || currentUserIdRef.current !== currentUserId) return;
+
+        const savedKeys = new Set(savedCart.map((item) => `${item.id}:${item.size}`));
+        const guestOnlyItems = guestCart.filter((item) => !savedKeys.has(`${item.id}:${item.size}`));
+        for (const item of guestOnlyItems) {
+          const response = await fetch('/api/cart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId: item.id, size: item.size, quantity: item.quantity }),
+          });
+          const result = await response.json() as { error?: string };
+          if (!response.ok) throw new Error(result.error ?? 'Unable to save a guest cart item.');
+        }
+
+        window.localStorage.removeItem(guestCartStorageKey);
+        if (active && currentUserIdRef.current === currentUserId) {
+          setCart([...savedCart, ...guestOnlyItems]);
+          setCartErrorKey(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!active || currentUserIdRef.current !== currentUserId) return;
+        console.error('Unable to restore the customer cart.', error);
+        setCart(guestCart);
+        setCartErrorKey('cartSyncError');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    let active = true;
+    void fetch('/api/inventory', { cache: 'no-store' })
+      .then(async (response) => {
+        const result = await response.json() as { items?: InventoryItem[]; error?: string };
+        if (!response.ok || !Array.isArray(result.items)) {
+          throw new Error(result.error ?? 'Unable to load product availability.');
+        }
+        if (active) {
+          setInventory(result.items);
+          setInventoryFailed(false);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        console.error('Unable to load product inventory.', error);
+        setInventoryFailed(true);
+      })
+      .finally(() => {
+        if (active) setInventoryLoaded(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!userIdentifier) return;
@@ -469,6 +671,46 @@ export default function Home() {
   }, [isAccountOpen, isCollectionsOpen, activeAuthDialogMode]);
 
   useEffect(() => {
+    if (!quickViewProduct) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    quickViewCloseButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setQuickViewProduct(null);
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+      const dialog = quickViewDialogRef.current;
+      if (!dialog) return;
+      const focusableElements = dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), select:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      if (!firstElement || !lastElement) return;
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+      if (quickViewTriggerRef.current?.isConnected) quickViewTriggerRef.current.focus();
+    };
+  }, [quickViewProduct]);
+
+  useEffect(() => {
     const activeVideo = backgroundVideoRefs.current[currentSlide];
     if (!activeVideo) return;
 
@@ -497,50 +739,129 @@ export default function Home() {
     }, videoTransitionDurationMs);
   };
 
-  const addToCart = (product: Product) => {
-    setCart((prevCart) => {
-      const existing = prevCart.find((item) => item.id === product.id);
-      if (existing) {
-        return prevCart.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
+  const persistCartChange = (
+    nextCart: CartItem[],
+    productId: number,
+    size: ProductSize,
+    item: CartItem | null,
+  ) => {
+    const userId = currentUserId;
+    if (!userId) {
+      try {
+        saveGuestCart(nextCart);
+        setCartErrorKey(null);
+      } catch (error) {
+        console.error('Unable to save the guest cart.', error);
+        setCartErrorKey('cartSyncError');
       }
-      return [...prevCart, { ...product, quantity: 1 }];
-    });
+      return;
+    }
+
+    setPendingCartSaves((pending) => pending + 1);
+    cartSaveQueue.current = cartSaveQueue.current
+      .then(async () => {
+        if (currentUserIdRef.current !== userId) return;
+        const response = item
+          ? await fetch('/api/cart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId, size, quantity: item.quantity }),
+          })
+          : await fetch(`/api/cart?productId=${productId}&size=${encodeURIComponent(size)}`, {
+            method: 'DELETE',
+          });
+        const result = await response.json() as { error?: string };
+        if (!response.ok) throw new Error(result.error ?? 'Unable to save the cart.');
+        setCartErrorKey(null);
+      })
+      .catch((error: unknown) => {
+        console.error('Unable to persist the customer cart.', error);
+        setCartErrorKey('cartSyncError');
+      })
+      .finally(() => setPendingCartSaves((pending) => Math.max(0, pending - 1)));
+  };
+
+  const addToCart = (product: Product) => {
+    const size = isSizedProduct(product.id) ? selectedSizes[product.id] ?? '' : '';
+    if (isSizedProduct(product.id) && !size) return;
+
+    const existing = cart.find((item) => item.id === product.id && item.size === size);
+    if (existing?.quantity === 999) {
+      setCartErrorKey('quantityLimit');
+      return;
+    }
+    const item = existing
+      ? { ...existing, quantity: existing.quantity + 1 }
+      : { ...product, size, quantity: 1 };
+    const nextCart = existing
+      ? cart.map((cartItem) => cartItem === existing ? item : cartItem)
+      : [...cart, item];
+    setCart(nextCart);
+    persistCartChange(nextCart, product.id, size, item);
     setIsCartOpen(true);
   };
 
-  const updateQuantity = (id: number, delta: number) => {
-    setCart((prevCart) =>
-      prevCart
-        .map((item) => {
-          if (item.id === id) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
-          }
-          return item;
-        })
-        .filter(Boolean) as CartItem[]
+  const updateQuantity = (id: number, size: ProductSize, delta: number) => {
+    const existing = cart.find((item) => item.id === id && item.size === size);
+    if (!existing) return;
+    const newQuantity = existing.quantity + delta;
+    if (newQuantity > 999) {
+      setCartErrorKey('quantityLimit');
+      return;
+    }
+    const nextCart = newQuantity > 0
+      ? cart.map((item) => item === existing ? { ...item, quantity: newQuantity } : item)
+      : cart.filter((item) => item !== existing);
+    setCart(nextCart);
+    persistCartChange(
+      nextCart,
+      id,
+      size,
+      newQuantity > 0 ? { ...existing, quantity: newQuantity } : null,
     );
   };
 
-  const removeFromCart = (id: number) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== id));
+  const removeFromCart = (id: number, size: ProductSize) => {
+    const nextCart = cart.filter((item) => item.id !== id || item.size !== size);
+    setCart(nextCart);
+    persistCartChange(nextCart, id, size, null);
   };
 
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const deliveryCharge = deliveryZone === 'inside' ? 80 : 150;
   const grandTotal = subtotal > 0 ? subtotal + deliveryCharge : 0;
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
+  const getStock = (productId: number, size: ProductSize) =>
+    inventory.find((item) => item.product_id === productId && item.size === size)?.stock;
+  const getSizeLabel = (size: ProductSize) => {
+    switch (size) {
+      case 'S': return t('sizeSmall');
+      case 'M': return t('sizeMedium');
+      case 'L': return t('sizeLarge');
+      case 'XL': return t('sizeExtraLarge');
+      default: return '';
+    }
+  };
+  const canOrderCart = cart.length > 0
+    && isCartReady
+    && inventoryLoaded
+    && !inventoryFailed
+    && pendingCartSaves === 0
+    && cart.every((item) => (getStock(item.id, item.size) ?? 0) >= item.quantity);
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userIdentifier) {
+    if (!currentUserId) {
       setIsCheckoutOpen(false);
-      setPendingCheckout(true);
+      pendingCheckoutRef.current = true;
       setAuthError('');
       setAuthFeedback(t('authRequired'));
       setAuthDialogMode('login');
+      return;
+    }
+
+    if (!canOrderCart) {
+      setOrderError(inventoryFailed || !inventoryLoaded ? t('inventoryLoadError') : t('stockConflict'));
       return;
     }
 
@@ -555,11 +876,15 @@ export default function Home() {
           customerPhone,
           customerAddress,
           deliveryZone,
-          items: cart.map(({ id, quantity }) => ({ id, quantity })),
+          items: cart.map(({ id, size, quantity }) => ({ id, size, quantity })),
         }),
       });
       const result = await response.json() as { error?: string };
       if (!response.ok) {
+        if (response.status === 409) {
+          setOrderError(t('stockConflict'));
+          return;
+        }
         throw new Error(result.error ?? 'Unable to save the order.');
       }
 
@@ -674,11 +999,6 @@ export default function Home() {
       setAuthPassword('');
       setAuthError('');
       setAuthFeedback('');
-      if (pendingCheckout) {
-        setPendingCheckout(false);
-        setIsCartOpen(false);
-        setIsCheckoutOpen(true);
-      }
     } catch (error) {
       console.error('Customer authentication failed.', error);
       setAuthError(t('authFailed'));
@@ -736,11 +1056,6 @@ export default function Home() {
       setAuthPhone('');
       setAuthOtp('');
       setWhatsappOtpSent(false);
-      if (pendingCheckout) {
-        setPendingCheckout(false);
-        setIsCartOpen(false);
-        setIsCheckoutOpen(true);
-      }
     } catch (error) {
       console.error('Customer WhatsApp authentication failed.', error);
       setAuthError(t('whatsappAuthFailed'));
@@ -805,7 +1120,7 @@ export default function Home() {
     setUserIdentifier(null);
     setIsAccountOpen(false);
     setIsChatOpen(false);
-    setPendingCheckout(false);
+    pendingCheckoutRef.current = false;
   };
 
   return (
@@ -1018,7 +1333,7 @@ export default function Home() {
             onMouseDown={(event) => {
               if (event.target === event.currentTarget) {
                 setAuthDialogMode(null);
-                setPendingCheckout(false);
+                pendingCheckoutRef.current = false;
                 clearAuthCallbackError();
               }
             }}
@@ -1040,7 +1355,7 @@ export default function Home() {
                 aria-label={t('close')}
                 onClick={() => {
                   setAuthDialogMode(null);
-                  setPendingCheckout(false);
+                  pendingCheckoutRef.current = false;
                   clearAuthCallbackError();
                 }}
               >
@@ -1426,13 +1741,27 @@ export default function Home() {
               style={{ backgroundColor: 'rgba(23, 23, 23, 0.82)', border: '1px solid rgba(245, 158, 11, 0.16)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
             >
               <div className="product-image" style={{ position: 'relative', height: '320px', overflow: 'hidden', backgroundColor: '#000000' }}>
-                <Image
-                  src={product.image}
-                  alt={translatedProduct(product, 'name')}
-                  fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  style={{ objectFit: 'cover' }}
-                />
+                <button
+                  type="button"
+                  className="product-image-trigger"
+                  aria-label={`${t('productQuickView')}: ${translatedProduct(product, 'name')}`}
+                  onClick={(event) => {
+                    quickViewTriggerRef.current = event.currentTarget;
+                    setQuickViewProduct(product);
+                  }}
+                >
+                  <Image
+                    src={product.image}
+                    alt=""
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    style={{ objectFit: 'cover' }}
+                  />
+                  <span className="product-image-quick-view">
+                    <ZoomIn size={16} aria-hidden="true" />
+                    {t('productQuickView')}
+                  </span>
+                </button>
                 <span style={{ position: 'absolute', top: '16px', left: '16px', backgroundColor: '#f59e0b', color: '#000000', fontSize: '11px', fontWeight: 'bold', padding: '6px 14px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {translatedProduct(product, 'badge')}
                 </span>
@@ -1449,12 +1778,55 @@ export default function Home() {
                 <h3 className="product-title" style={{ fontSize: '18px', fontWeight: 600, color: '#ffffff', marginBottom: '16px' }}>
                   {translatedProduct(product, 'name')}
                 </h3>
+                {isSizedProduct(product.id) && (
+                  <label className="product-size-control">
+                    <span>{t('selectSize')}</span>
+                    <select
+                      value={selectedSizes[product.id] ?? ''}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (!value) {
+                          setSelectedSizes((sizes) => ({ ...sizes, [product.id]: '' }));
+                          return;
+                        }
+                        const size = getProductSize(product.id, value);
+                        if (size !== null) {
+                          setSelectedSizes((sizes) => ({ ...sizes, [product.id]: size }));
+                        }
+                      }}
+                      aria-label={`${t('selectSize')}: ${translatedProduct(product, 'name')}`}
+                    >
+                      <option value="">{t('selectSize')}</option>
+                      {clothingSizes.map((size) => (
+                        <option key={size} value={size}>{getSizeLabel(size)}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <p className="product-stock-status" aria-live="polite">
+                  {inventoryFailed
+                    ? t('inventoryLoadError')
+                    : !inventoryLoaded
+                      ? t('stockLoading')
+                      : isSizedProduct(product.id) && !selectedSizes[product.id]
+                        ? t('selectSize')
+                        : (getStock(
+                          product.id,
+                          isSizedProduct(product.id) ? selectedSizes[product.id] ?? '' : '',
+                        ) ?? 0) > 0
+                          ? `${t('stockAvailable')}: ${formatPrice(getStock(
+                            product.id,
+                            isSizedProduct(product.id) ? selectedSizes[product.id] ?? '' : '',
+                          ) ?? 0)}`
+                          : t('outOfStock')}
+                </p>
                 <div className="product-purchase-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #262626', paddingTop: '16px' }}>
                   <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#f59e0b' }}>৳ {formatPrice(product.price)}</span>
                   <button 
                     className="product-cart-button"
                     onClick={() => addToCart(product)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#262626', color: '#f59e0b', border: 'none', padding: '10px 18px', borderRadius: '12px', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+                    disabled={!isCartReady || (isSizedProduct(product.id) && !selectedSizes[product.id])}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#262626', color: '#f59e0b', border: 'none', padding: '10px 18px', borderRadius: '12px', fontSize: '13px', fontWeight: 500, cursor: !isCartReady || (isSizedProduct(product.id) && !selectedSizes[product.id]) ? 'not-allowed' : 'pointer', opacity: !isCartReady || (isSizedProduct(product.id) && !selectedSizes[product.id]) ? 0.6 : 1 }}
                   >
                     <ShoppingBag size={16} />
                     <span>{t('addToCart')}</span>
@@ -1549,6 +1921,132 @@ export default function Home() {
       </section>
       </main>
 
+      <AnimatePresence>
+        {quickViewProduct && (
+          <motion.div
+            className="product-quick-view-overlay"
+            role="presentation"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
+          >
+            <button
+              type="button"
+              className="product-quick-view-backdrop"
+              aria-label={t('close')}
+              tabIndex={-1}
+              onClick={() => setQuickViewProduct(null)}
+            />
+            <motion.section
+              ref={quickViewDialogRef}
+              className="product-quick-view-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="product-quick-view-title"
+              initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 12 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: 'easeOut' }}
+            >
+              <div className="product-quick-view-image">
+                <Image
+                  src={quickViewProduct.image}
+                  alt={translatedProduct(quickViewProduct, 'name')}
+                  fill
+                  sizes="(max-width: 700px) 100vw, 45vw"
+                  style={{ objectFit: 'cover' }}
+                  priority
+                />
+              </div>
+              <div className="product-quick-view-content">
+                <button
+                  ref={quickViewCloseButtonRef}
+                  type="button"
+                  className="product-quick-view-close"
+                  aria-label={t('close')}
+                  onClick={() => setQuickViewProduct(null)}
+                >
+                  <X size={20} />
+                </button>
+                <span className="product-quick-view-badge">
+                  {translatedProduct(quickViewProduct, 'badge')}
+                </span>
+                <div className="product-quick-view-rating">
+                  <Star size={15} fill="currentColor" aria-hidden="true" />
+                  <span>{quickViewProduct.rating}</span>
+                  <span>AMOREA</span>
+                </div>
+                <h2 id="product-quick-view-title">
+                  {translatedProduct(quickViewProduct, 'name')}
+                </h2>
+                <p className="product-quick-view-price">
+                  ৳ {formatPrice(quickViewProduct.price)}
+                </p>
+                {isSizedProduct(quickViewProduct.id) && (
+                  <label className="product-quick-view-size">
+                    <span>{t('selectSize')}</span>
+                    <select
+                      value={selectedSizes[quickViewProduct.id] ?? ''}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (!value) {
+                          setSelectedSizes((sizes) => ({ ...sizes, [quickViewProduct.id]: '' }));
+                          return;
+                        }
+                        const size = getProductSize(quickViewProduct.id, value);
+                        if (size !== null) {
+                          setSelectedSizes((sizes) => ({ ...sizes, [quickViewProduct.id]: size }));
+                        }
+                      }}
+                      aria-label={`${t('selectSize')}: ${translatedProduct(quickViewProduct, 'name')}`}
+                    >
+                      <option value="">{t('selectSize')}</option>
+                      {clothingSizes.map((size) => (
+                        <option key={size} value={size}>{getSizeLabel(size)}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <p className="product-quick-view-stock" aria-live="polite">
+                  {inventoryFailed
+                    ? t('inventoryLoadError')
+                    : !inventoryLoaded
+                      ? t('stockLoading')
+                      : isSizedProduct(quickViewProduct.id) && !selectedSizes[quickViewProduct.id]
+                        ? t('selectSize')
+                        : (getStock(
+                          quickViewProduct.id,
+                          isSizedProduct(quickViewProduct.id)
+                            ? selectedSizes[quickViewProduct.id] ?? ''
+                            : '',
+                        ) ?? 0) > 0
+                          ? `${t('stockAvailable')}: ${formatPrice(getStock(
+                            quickViewProduct.id,
+                            isSizedProduct(quickViewProduct.id)
+                              ? selectedSizes[quickViewProduct.id] ?? ''
+                              : '',
+                          ) ?? 0)}`
+                          : t('outOfStock')}
+                </p>
+                <button
+                  type="button"
+                  className="product-quick-view-add"
+                  onClick={() => {
+                    addToCart(quickViewProduct);
+                    setQuickViewProduct(null);
+                  }}
+                  disabled={!isCartReady || (isSizedProduct(quickViewProduct.id) && !selectedSizes[quickViewProduct.id])}
+                >
+                  <ShoppingBag size={18} aria-hidden="true" />
+                  {t('addToCart')}
+                </button>
+              </div>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Cart Drawer */}
       <AnimatePresence>
         {isCartOpen && (
@@ -1578,6 +2076,7 @@ export default function Home() {
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {cartErrorKey && <p className="order-error" role="alert">{t(cartErrorKey)}</p>}
                 {cart.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '80px 0', color: '#737373' }}>
                     <ShoppingBag size={48} style={{ margin: '0 auto 16px auto', opacity: 0.4 }} />
@@ -1585,24 +2084,34 @@ export default function Home() {
                   </div>
                 ) : (
                   cart.map((item) => (
-                    <div key={item.id} style={{ display: 'flex', gap: '16px', backgroundColor: '#0a0a0a', padding: '16px', borderRadius: '12px', border: '1px solid #262626', alignItems: 'center' }}>
+                    <div key={`${item.id}:${item.size}`} style={{ display: 'flex', gap: '16px', backgroundColor: '#0a0a0a', padding: '16px', borderRadius: '12px', border: '1px solid #262626', alignItems: 'center' }}>
                       <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0 }}>
                         <Image src={item.image} alt={translatedProduct(item, 'name')} fill sizes="64px" style={{ objectFit: 'cover' }} />
                       </div>
                       <div style={{ flex: 1 }}>
                         <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', marginBottom: '4px' }}>{translatedProduct(item, 'name')}</h4>
                         <p style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 'bold' }}>৳ {formatPrice(item.price)}</p>
+                        {item.size && <p style={{ fontSize: '12px', color: '#d4d4d4', marginTop: '4px' }}>{getSizeLabel(item.size)}</p>}
+                        <p style={{ fontSize: '11px', color: '#a3a3a3', marginTop: '4px' }}>
+                          {inventoryFailed
+                            ? t('inventoryLoadError')
+                            : !inventoryLoaded
+                              ? t('stockLoading')
+                              : (getStock(item.id, item.size) ?? 0) > 0
+                                ? `${t('stockAvailable')}: ${formatPrice(getStock(item.id, item.size) ?? 0)}`
+                                : t('outOfStock')}
+                        </p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
-                          <button onClick={() => updateQuantity(item.id, -1)} aria-label={t('decreaseQuantity')} style={{ padding: '4px 8px', backgroundColor: '#262626', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>
+                          <button onClick={() => updateQuantity(item.id, item.size, -1)} aria-label={t('decreaseQuantity')} style={{ padding: '4px 8px', backgroundColor: '#262626', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>
                             <Minus size={12} />
                           </button>
                           <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, 1)} aria-label={t('increaseQuantity')} style={{ padding: '4px 8px', backgroundColor: '#262626', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>
+                          <button onClick={() => updateQuantity(item.id, item.size, 1)} aria-label={t('increaseQuantity')} style={{ padding: '4px 8px', backgroundColor: '#262626', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer' }}>
                             <Plus size={12} />
                           </button>
                         </div>
                       </div>
-                      <button onClick={() => removeFromCart(item.id)} aria-label={t('removeItem')} style={{ background: 'transparent', border: 'none', color: '#737373', cursor: 'pointer' }}>
+                      <button onClick={() => removeFromCart(item.id, item.size)} aria-label={t('removeItem')} style={{ background: 'transparent', border: 'none', color: '#737373', cursor: 'pointer' }}>
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -1617,9 +2126,10 @@ export default function Home() {
                     <span style={{ color: '#ffffff', fontWeight: 'bold' }}>৳ {formatPrice(subtotal)}</span>
                   </div>
                   <button
+                    disabled={!canOrderCart}
                     onClick={() => {
-                      if (!userIdentifier) {
-                        setPendingCheckout(true);
+                      if (!currentUserId) {
+                        pendingCheckoutRef.current = true;
                         setAuthError('');
                         setAuthFeedback(t('authRequired'));
                         setAuthDialogMode('login');
@@ -1629,7 +2139,7 @@ export default function Home() {
                         setIsCheckoutOpen(true);
                       }
                     }}
-                    style={{ width: '100%', background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', fontWeight: 'bold', padding: '14px', borderRadius: '12px', border: 'none', cursor: 'pointer', boxShadow: '0 0 20px rgba(245,158,11,0.3)' }}
+                    style={{ width: '100%', background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', fontWeight: 'bold', padding: '14px', borderRadius: '12px', border: 'none', cursor: canOrderCart ? 'pointer' : 'not-allowed', opacity: canOrderCart ? 1 : 0.6, boxShadow: '0 0 20px rgba(245,158,11,0.3)' }}
                   >
                     {t('proceedCheckout')}
                   </button>
@@ -1765,8 +2275,8 @@ export default function Home() {
                   {orderError && <p className="order-error" role="alert">{orderError}</p>}
                   <button
                     type="submit"
-                    disabled={isPlacingOrder}
-                    style={{ width: '100%', background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', fontWeight: 'bold', padding: '14px', borderRadius: '12px', border: 'none', cursor: isPlacingOrder ? 'wait' : 'pointer', marginTop: '12px', boxShadow: '0 0 20px rgba(245,158,11,0.3)', opacity: isPlacingOrder ? 0.7 : 1 }}
+                    disabled={isPlacingOrder || !canOrderCart}
+                    style={{ width: '100%', background: 'linear-gradient(to right, #f59e0b, #d97706)', color: '#000000', fontWeight: 'bold', padding: '14px', borderRadius: '12px', border: 'none', cursor: isPlacingOrder ? 'wait' : canOrderCart ? 'pointer' : 'not-allowed', marginTop: '12px', boxShadow: '0 0 20px rgba(245,158,11,0.3)', opacity: isPlacingOrder || !canOrderCart ? 0.7 : 1 }}
                   >
                     {isPlacingOrder ? t('orderSaving') : t('confirmOrder')}
                   </button>

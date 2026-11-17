@@ -51,4 +51,14 @@ npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase migration up --remote
 ```
 
-The migration creates user-owned `customer_orders` and `customer_chat_messages` tables with Row Level Security, without modifying the existing `orders` table. Every read and write is scoped to the signed-in Supabase user; data is stored as database rows, not separate files on the web server. The API recalculates order prices from the server-side catalog before saving.
+The migrations create user-owned `customer_orders`, `customer_chat_messages`, and `customer_cart_items` tables with Row Level Security, without modifying the existing `orders` table. Every read and write is scoped to the signed-in Supabase user; carts are saved per account, while signed-out carts stay in that browser until sign-in. Pakistani Wear products support S, M, L, and XL. `product_inventory` starts every product/size at zero, and orders are rejected unless an atomic database-side stock reservation succeeds. The API recalculates order prices from the server-side catalog before saving.
+
+To make products orderable, restock the required variants from the Supabase SQL Editor using an authorized project owner account, for example:
+
+```sql
+update public.product_inventory
+set stock = 5
+where product_id = 1 and size = 'S';
+```
+
+Non-apparel products use an empty size (`size = ''`). Do not grant the public or authenticated roles permission to update inventory.

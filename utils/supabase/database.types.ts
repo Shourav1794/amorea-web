@@ -9,6 +9,24 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      customer_cart_items: {
+        Row: {
+          user_id: string;
+          product_id: number;
+          size: string;
+          quantity: number;
+        };
+        Insert: {
+          user_id: string;
+          product_id: number;
+          size?: string;
+          quantity: number;
+        };
+        Update: {
+          quantity?: number;
+        };
+        Relationships: [];
+      };
       customer_orders: {
         Row: {
           id: string;
@@ -57,6 +75,22 @@ export type Database = {
           created_at?: string;
         };
         Update: never;
+        Relationships: [];
+      };
+      product_inventory: {
+        Row: {
+          product_id: number;
+          size: string;
+          stock: number;
+        };
+        Insert: {
+          product_id: number;
+          size?: string;
+          stock?: number;
+        };
+        Update: {
+          stock?: number;
+        };
         Relationships: [];
       };
     };

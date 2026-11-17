@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { products } from '@/utils/catalog';
+import { getProductSize, type ProductSize } from '@/utils/cart';
 import { createClient } from '@/utils/supabase/server';
 
 type RequestedItem = {
   id: number;
+  size?: unknown;
   quantity: number;
 };
 
@@ -88,7 +90,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Choose a valid delivery area.' }, { status: 400 });
   }
   const inputItems = payload.items;
-  if (!Array.isArray(inputItems) || inputItems.length < 1 || inputItems.length > products.length) {
+  if (!Array.isArray(inputItems) || inputItems.length < 1 || inputItems.length > 14) {
     return NextResponse.json({ error: 'Your cart is empty or invalid.' }, { status: 400 });
   }
 
@@ -97,26 +99,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Your cart contains an invalid item.' }, { status: 400 });
   }
 
-  const quantities = new Map<number, number>();
+  const quantities = new Map<string, { id: number; size: ProductSize; quantity: number }>();
   for (const item of requestedItems) {
-    const productExists = products.some((product) => product.id === item.id);
-    if (!productExists || item.quantity < 1 || item.quantity > 999) {
+    const size = getProductSize(item.id, item.size);
+    if (size === null || item.quantity < 1 || item.quantity > 999) {
       return NextResponse.json({ error: 'Your cart contains an invalid item quantity.' }, { status: 400 });
     }
-    const quantity = (quantities.get(item.id) ?? 0) + item.quantity;
+    const key = `${item.id}:${size}`;
+    const quantity = (quantities.get(key)?.quantity ?? 0) + item.quantity;
     if (quantity > 999) {
       return NextResponse.json({ error: 'Your cart contains an invalid item quantity.' }, { status: 400 });
     }
-    quantities.set(item.id, quantity);
+    quantities.set(key, { id: item.id, size, quantity });
   }
 
-  const orderItems = [...quantities.entries()].map(([id, quantity]) => {
+  const orderItems = [...quantities.values()].map(({ id, size, quantity }) => {
     const product = products.find((candidate) => candidate.id === id);
     if (!product) throw new Error(`Catalog product ${id} disappeared during order creation.`);
     return {
       productId: product.id,
       name: product.name,
       unitPrice: product.price,
+      size,
       quantity,
     };
   });
@@ -141,6 +145,12 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error('Unable to save customer order.', error);
+    if (error.code === '23514' && error.message.includes('Insufficient stock')) {
+      return NextResponse.json(
+        { error: 'One or more items no longer have enough stock. Update your cart and try again.' },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ error: 'Unable to save your order. Please try again.' }, { status: 500 });
   }
 
